@@ -1,28 +1,278 @@
 export const expensesData: Record<string, Record<string, number>> = {
-  "Alice": {
-    "Airbnb": 300,
-    "Breakfast": 20,
-    "Dinner": 45,
-    "Activities": 60
+  "Rohit": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
   },
-  "Bob": {
-    "Airbnb": 300,
-    "Breakfast": 20,
-    "Lunch": 30,
-    "Activities": 60
+  "Sank": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
   },
-  "Charlie": {
-    "Airbnb": 300,
-    "Dinner": 45,
-    "Transportation": 40,
-    "Activities": 60,
-    "other": 100
+  "Twisha": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
   },
-  "Diana": {
-    "Airbnb": 300,
-    "Lunch": 25,
-    "Transportation": 35,
-    "Activities": 60
+  "Shrujal": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Kratik": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Shreya": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Dilan": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Ellen": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Kaushik": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Pranav": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Samantha": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Noosha": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Georgia": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Nitin": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Shevani": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Krish": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Dhaval": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Ravi": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Ameera": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Anish": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Bella": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Nina": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
+  },
+  "Avantika": {
+    "Airbnb": 290.9589041,
+    "Butchers Daughter": 0,
+    "Saturday Night Alc": 0,
+    "Costco": 0,
+    "Ralphs": 0,
+    "Pizza": 0,
+    "Tailgate": 0,
+    "Mor Booz on Saturday Night": 0,
+    "parking+mats": 0,
+    "Extra money from tailgate": 0
   }
-}
-
+};

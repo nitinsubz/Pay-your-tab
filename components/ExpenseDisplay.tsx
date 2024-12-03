@@ -12,7 +12,7 @@ export function ExpenseDisplay({ expenses, name }: ExpenseDisplayProps) {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>{name}'s Expenses</CardTitle>
+        <CardTitle>{name}&apos;s Expenses</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-2">
