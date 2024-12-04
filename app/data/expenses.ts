@@ -43,7 +43,8 @@ export const expensesData: Record<string, Record<string, number>> = {
     "Tailgate": 6.5217,
     
     "Supplies and Parking": 6.95652,
-    "Tailgate Profit": -10.22727
+    "Tailgate Profit": -10.22727,
+    "Reimbursed": -474.12
   },
   "Kratik": {
     "Airbnb": 290.9589041,
@@ -77,7 +78,8 @@ export const expensesData: Record<string, Record<string, number>> = {
     "Tailgate": 6.5217,
     
     "Supplies and Parking": 6.95652,
-    "Tailgate Profit": -10.22727
+    "Tailgate Profit": -10.22727,
+    "Booz Reimbursed": -100
   },
   "Ellen": {
     "Airbnb": 290.9589041,

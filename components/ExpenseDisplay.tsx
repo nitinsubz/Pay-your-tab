@@ -29,9 +29,16 @@ export function ExpenseDisplay({ expenses, name }: ExpenseDisplayProps) {
         </div>
       </CardContent>
       <CardFooter>
-        <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=pay&recipients=nitinsub&amount=${total.toFixed(2)}&note=USC WEEKEND`}>
-          Click to Venmo
-        </Button>
+        {total > 0 && (
+          <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=pay&recipients=nitinsub&amount=${total.toFixed(2)}&note=USC WEEKEND`}>
+            Click to Venmo
+          </Button>
+         )}
+         {total <= 0 && (
+          <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=req&recipients=nitinsub&amount=${(-total).toFixed(2)}&note=USC WEEKEND REIMBURSEMENT`}>
+            Click to Venmo Request
+          </Button>
+         )}
       </CardFooter>
     </Card>
   )
