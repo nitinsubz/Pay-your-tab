@@ -19,7 +19,10 @@ export default function Home() {
   
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-12">
-      <h1 className="text-4xl font-bold mb-8">USC Weekend Expenses</h1>
+      <h1 className="text-4xl font-bold mb-2">USC Weekend Expenses</h1>
+      <p className="text-sm italic text-gray-600 mb-8">
+        It's like spotify wrapped, except its the tab your broke ass ran up and now you're even more broke, wrapped.
+      </p>
       <div className="mb-8 w-full max-w-md">
         <select
           value={name}
