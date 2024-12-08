@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { ExpenseDisplay } from '@/components/ExpenseDisplay'
 import { expensesData } from '../../data/expenses'
 import { useParams } from 'next/navigation'
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/firebaseConfig'
 
 export default function Home() {
@@ -77,15 +77,6 @@ export default function Home() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
-
-  const handleNameChange = (newName: string) => {
-    if (newName) {
-      window.location.href = `/${newName}`
-    } else {
-      window.location.href = '/'
-    }
-  }
-
 
   useEffect(() => {
     // Update URL when name changes through select

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { auth } from '@/firebaseConfig';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/firebaseConfig';
 import { Navbar } from '@/components/Navbar';
@@ -10,7 +10,8 @@ import { useRouter } from 'next/navigation';
 
 export default function TabsDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [tabs, setTabs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +32,6 @@ export default function TabsDashboard() {
         id: doc.id,
         ...doc.data()
       }));
-      console.log(userTabs);
       setTabs(userTabs);
       setLoading(false);
     });
@@ -50,13 +50,13 @@ export default function TabsDashboard() {
       <Navbar />
       <main className="container mx-auto px-4 py-8 pt-20">
         <h1 className="text-3xl font-bold mb-8">
-          Welcome, {user.displayName || user.email}
+          Welcome, {user?.displayName || user?.email}
         </h1>
         
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Your Tabs</h2>
           {tabs.length === 0 ? (
-            <p className="text-gray-500">You haven't created any tabs yet.</p>
+            <p className="text-gray-500">You have not created any tabs yet.</p>
           ) : (
             <ul className="space-y-4">
               {tabs.map((tab) => (
