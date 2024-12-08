@@ -9,6 +9,12 @@ interface ExpenseDisplayProps {
 export function ExpenseDisplay({ expenses, name }: ExpenseDisplayProps) {
   const total = Object.values(expenses).reduce((sum, expense) => sum + expense, 0)
 
+  const formatAmount = (amount: number) => {
+    return amount < 0 
+      ? `-$${Math.abs(amount).toFixed(2)}`
+      : `$${amount.toFixed(2)}`
+  }
+
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
@@ -17,15 +23,18 @@ export function ExpenseDisplay({ expenses, name }: ExpenseDisplayProps) {
       <CardContent>
         <ul className="space-y-2">
           {Object.entries(expenses).map(([category, amount]) => (
-            <li key={category} className="flex justify-between">
+            <li 
+              key={category} 
+  className={`flex justify-between ${amount < 0 ? 'text-blue-600' : ''}`}
+  >
               <span>{category}</span>
-              <span>${amount.toFixed(2)}</span>
+              <span>{formatAmount(amount)}</span>
             </li>
           ))}
         </ul>
         <div className="mt-4 text-xl font-bold flex justify-between">
           <span>Total</span>
-          <span>${total.toFixed(2)}</span>
+          <span>{formatAmount(total)}</span>
         </div>
       </CardContent>
       <CardFooter>
