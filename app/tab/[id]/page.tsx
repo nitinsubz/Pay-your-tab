@@ -13,6 +13,9 @@ export default function Home() {
   const params = useParams()
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(true);
+  const [tabExists, setTabExists] = useState(true);
+  const [title, setTitle] = useState('');
+
   useEffect(() => {
     // Read initial name from URL param or hash
     const urlId = params.id as string
@@ -41,18 +44,21 @@ export default function Home() {
     // Always fetch tab data regardless of hash or URL param
     const fetchTabs = async () => {
       try {
-        const docRef = doc(db, 'tabs', urlId);  // Always use urlId, not the hash
+        const docRef = doc(db, 'tabs', urlId);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
           const tabData = docSnap.data();
           setDescription(tabData.description || '');
-          console.log(tabData);
+          setTitle(tabData.title)
+          setTabExists(true);
         } else {
           console.log("No such document!");
+          setTabExists(false);
         }
       } catch (error) {
         console.error("Error fetching document:", error);
+        setTabExists(false);
       }
       setLoading(false);
     };
@@ -93,9 +99,21 @@ export default function Home() {
     if (loading) {
       return <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
     }
+    
+    if (!tabExists) {
+      return (
+        <>
+        <div className="text-center">
+          <h1 className="text-4xl font-bold mb-4">Oops!</h1>
+          <p className="text-xl text-gray-600">This tab does not exist.</p>
+        </div>
+        </>
+      );
+    }
+
     return (
       <>
-        <h1 className="text-4xl font-bold mb-2">USC Weekend Expenses</h1>
+        <h1 className="text-4xl font-bold mb-2 text-center">{title}</h1>
         <div>
           <p className="text-sm italic text-gray-600 mb-8 text-center">
             {description}

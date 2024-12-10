@@ -7,6 +7,8 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/firebaseConfig';
 import { Navbar } from '@/components/Navbar';
 import { useRouter } from 'next/navigation';
+import { sendSMS } from '@/api/sms/sendSMS';
+
 
 export default function TabsDashboard() {
   const router = useRouter();
@@ -45,6 +47,11 @@ export default function TabsDashboard() {
     </div>;
   }
 
+  const handTextBlast = () => {
+    sendSMS({message: "hey", recipients: ['4084976281']});
+  };
+
+
   return (
     <div className="min-h-screen bg-gray-50 pt-8">
       <Navbar />
@@ -65,15 +72,26 @@ export default function TabsDashboard() {
                     <h3 className="font-medium">{tab.title}</h3>
                     <p className="text-gray-600">{tab.description}</p>
                   </div>
-                  <button
-                    onClick={() => router.push(`/tab/${tab.id}`)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2"
-                  >
-                    View Tab
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => router.push(`/tab/${tab.id}`)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2"
+                    >
+                      View Tab
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handTextBlast()}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2"
+                    >
+                      Send Reminders
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0v1a3 3 0 11-6 0v-1" />
+                      </svg>
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

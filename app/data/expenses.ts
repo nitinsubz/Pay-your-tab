@@ -2,7 +2,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   "Rohit": {
     "Airbnb": 290.9589041,
     "Butchers Daughter": 6.25,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -14,7 +14,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   "Sank": {
     "Airbnb": 290.9589041,
     "Butchers Daughter": 6.25,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -25,7 +25,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Twisha": {
     "Airbnb": 290.9589041,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -36,7 +36,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Shrujal": {
     "Airbnb": 290.9589041,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -48,7 +48,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Kratik": {
     "Airbnb": 290.9589041,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -59,7 +59,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Shreya": {
     "Airbnb": 290.9589041,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 0,
@@ -71,7 +71,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   "Dilan": {
     "Airbnb": 290.9589041,
     "Butchers Daughter": 6.25,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -84,7 +84,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   "Ellen": {
     "Airbnb": 290.9589041,
     "Butchers Daughter": 6.25,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -95,7 +95,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Kaushik": {
     "Airbnb": 72.73972603,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 0,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -106,7 +106,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Pranav": {
     "Airbnb": 290.9589041,
-    // "Saturday Night Alc": 7.99,
+    // "Saturday Night Alc": 8.84,
     "Costco": 4.41,
     "Ralphs": 1.06,
     "Pizza": 3.636363,
@@ -117,7 +117,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Samantha": {
     "Airbnb": 72.73972603,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 0,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -128,7 +128,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Noosha": {
     "Airbnb": 218.2191781,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -139,7 +139,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Georgia": {
     "Airbnb": 290.9589041,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -151,7 +151,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   "Nitin": {
     "Airbnb": 290.9589041,
     "Butchers Daughter": 6.25,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -162,7 +162,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Shevani": {
     "Airbnb": 290.9589041,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -174,7 +174,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   "Krish": {
     "Airbnb": 290.9589041,
     "Butchers Daughter": 6.25,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -186,7 +186,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   "Dhaval": {
     "Airbnb": 145.4794521,
     "Butchers Daughter": 6.25,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -198,7 +198,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   "Ravi": {
     "Airbnb": 290.9589041,
     "Butchers Daughter": 6.25,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -209,7 +209,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Ameera": {
     "Airbnb": 145.4794521,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -220,7 +220,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Anish": {
     "Airbnb": 145.4794521,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -231,7 +231,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Bella": {
     "Airbnb": 145.4794521,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -242,7 +242,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Nina": {
     "Airbnb": 290.9589041,
-    "Saturday Night Alc": 7.99,
+    "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     "Ralphs": 2.12465,
     "Pizza": 3.636363,
@@ -253,7 +253,7 @@ export const expensesData: Record<string, Record<string, number>> = {
   },
   "Avantika": {
     // "Airbnb": 290.9589041,
-    // "Saturday Night Alc": 7.99,
+    // "Saturday Night Alc": 8.84,
     "Costco": 8.819,
     // "Ralphs": 2.12465,
     "Pizza": 3.636363,
