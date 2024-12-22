@@ -12,7 +12,7 @@ interface ExpenseDisplayProps {
 }
 
 export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, documentId }: ExpenseDisplayProps) {
-  let total = Object.values(expenses).reduce((sum, expense) => sum + expense, 0)
+  const total = Object.values(expenses).reduce((sum, expense) => sum + expense, 0)
 
   const formatAmount = (amount: number) => {
     return amount < 0 
@@ -60,13 +60,6 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
     }
   }
 
-  // Helper function to find the person's index
-  const findPersonIndex = async (docRef: any, personName: string) => {
-    const doc = await getDoc(docRef)
-    const people = (doc.data() as any).people || []
-    return people.findIndex((person: any) => person.name === personName)
-  }
-  
   return (
     <Card className={`w-full max-w-md ${isPaid ? 'bg-green-50' : ''}`}>
       <CardHeader>

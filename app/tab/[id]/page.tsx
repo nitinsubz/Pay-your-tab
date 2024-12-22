@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ExpenseDisplay } from '@/components/ExpenseDisplay'
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/firebaseConfig'
 import { useParams } from 'next/navigation'
 
@@ -38,8 +38,6 @@ export default function Home() {
   const [title, setTitle] = useState('');
   const [allUsers, setAllUsers] = useState<string[]>([]);
   const [expensesData, setExpensesData] = useState<Record<string, Record<string, number>>>({});
-  const [items, setItems] = useState<Item[]>([]);
-  const [people, setPeople] = useState<Person[]>([]);
   const [paid, setPaid] = useState(false);
   const [paidStatusCache, setPaidStatusCache] = useState<Record<string, boolean>>({});
 
@@ -56,8 +54,6 @@ export default function Home() {
         if (tabDocSnap.exists()) {
           setDescription(tabData.description || '');
           setTitle(tabData.title);
-          setPeople(tabData.people || []);
-          setItems(tabData.items || []);
           setTabExists(true);
 
           // Calculate expenses per person

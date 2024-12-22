@@ -8,24 +8,6 @@ interface ParticipantListProps {
 }
 
 export function ParticipantList({ participants, onParticipantsChange }: ParticipantListProps) {
-  const addParticipant = () => {
-    const newParticipant: Participant = {
-      id: crypto.randomUUID(),
-      name: '',
-      paid: false
-    }
-    onParticipantsChange([...participants, newParticipant])
-  }
-
-  const updateParticipant = (index: number, updates: Partial<Participant>) => {
-    const newParticipants = [...participants]
-    newParticipants[index] = {
-      ...newParticipants[index],
-      ...updates,
-      id: updates.phoneNumber || newParticipants[index].id
-    }
-    onParticipantsChange(newParticipants)
-  }
 
   const togglePaidStatus = (participantId: string) => {
     onParticipantsChange(
