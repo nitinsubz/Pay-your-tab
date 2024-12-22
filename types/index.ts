@@ -1,6 +1,7 @@
 export interface FirestoreParticipant {
-  phoneNumber: string
+  phoneNumber?: string
   name: string
+  paid: boolean
 }
 
 export interface Participant extends FirestoreParticipant {

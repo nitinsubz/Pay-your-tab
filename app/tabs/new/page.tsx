@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { auth, db } from '@/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 
@@ -127,7 +127,7 @@ export default function CreateTab() {
         description,
         people,
         items,
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
         status: 'active'
       };
 

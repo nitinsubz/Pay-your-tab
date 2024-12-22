@@ -9,6 +9,7 @@ import { useParams } from 'next/navigation'
 interface Person {
   name: string;
   phoneNumber: string;
+  paid?: boolean;
 }
 
 interface Item {
@@ -18,6 +19,13 @@ interface Item {
     personName: string;
   }[];
   totalAmount: number;
+}
+
+interface TabDocument {
+  people: Person[];
+  title: string;
+  description: string;
+  items: Item[];
 }
 
 export default function Home() {
@@ -32,6 +40,8 @@ export default function Home() {
   const [expensesData, setExpensesData] = useState<Record<string, Record<string, number>>>({});
   const [items, setItems] = useState<Item[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
+  const [paid, setPaid] = useState(false);
+  const [paidStatusCache, setPaidStatusCache] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const urlId = params.id as string
@@ -41,9 +51,9 @@ export default function Home() {
       try {
         const tabDocRef = doc(db, 'tabs', urlId);
         const tabDocSnap = await getDoc(tabDocRef);
+        const tabData = tabDocSnap.data() as TabDocument;
 
         if (tabDocSnap.exists()) {
-          const tabData = tabDocSnap.data();
           setDescription(tabData.description || '');
           setTitle(tabData.title);
           setPeople(tabData.people || []);
@@ -70,6 +80,13 @@ export default function Home() {
           setExpensesData(expensesMap);
           setAllUsers(tabData.people.map((p: Person) => p.name));
 
+          // Initialize paid status cache
+          const initialPaidStatus: Record<string, boolean> = {};
+          tabData.people.forEach((person: Person) => {
+            initialPaidStatus[person.name] = person.paid || false;
+          });
+          setPaidStatusCache(initialPaidStatus);
+
           // Set expenses based on hash
           if (hashName) {
             const matchingHashName = tabData.people.find(
@@ -89,7 +106,7 @@ export default function Home() {
       }
       setLoading(false);
     };
-
+    console.log(paid);
     fetchTabAndExpenses();
   }, [params.id]);
 
@@ -108,20 +125,21 @@ export default function Home() {
         }
       }
     }
-
+    
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [expensesData])  // Add expensesData as dependency
-
+  
   useEffect(() => {
-    if (name && expensesData) {  // Add check for expensesData
+    if (name && expensesData) {
       window.location.hash = name
       setExpenses(expensesData[name])
+      setPaid(paidStatusCache[name] || false);
     } else {
       window.location.hash = ''
       setExpenses(null)
     }
-  }, [name, expensesData])  // Add expensesData as dependency
+  }, [name, expensesData, paidStatusCache])
 
   const getComponent = () => {
     if (loading) {
@@ -161,7 +179,21 @@ export default function Home() {
             ))}
           </select>
         </div>
-        {expenses && <ExpenseDisplay expenses={expenses} name={name} />}
+        {expenses && (
+          <ExpenseDisplay 
+            expenses={expenses} 
+            name={name} 
+            documentId={params.id as string}
+            isPaid={paid}
+            onMarkPaid={() => {
+              setPaid(true);
+              setPaidStatusCache(prev => ({
+                ...prev,
+                [name]: true
+              }));
+            }}
+          />
+        )}
         {name && !expenses && <p className="text-red-500">No expenses found for {name}</p>}
         {!name && <p className="text-gray-500">Please select a name to view expenses</p>}
       </>

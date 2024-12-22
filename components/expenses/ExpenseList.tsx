@@ -8,9 +8,10 @@ interface ExpenseListProps {
   expenses: ExpenseWithDetails[]
   participants: Participant[]
   onExpensesChange: (expenses: ExpenseWithDetails[]) => void
+  onParticipantPaidChange: (participantId: string, paid: boolean) => void
 }
 
-export function ExpenseList({ expenses, participants, onExpensesChange }: ExpenseListProps) {
+export function ExpenseList({ expenses, participants, onExpensesChange, onParticipantPaidChange }: ExpenseListProps) {
   const addExpense = () => {
     if (participants.length === 0) return
 
@@ -43,6 +44,7 @@ export function ExpenseList({ expenses, participants, onExpensesChange }: Expens
                 expenses.map(exp => exp.id === updatedExpense.id ? updatedExpense : exp)
               )
             }}
+            onParticipantPaidChange={onParticipantPaidChange}
           />
         ))}
       </div>

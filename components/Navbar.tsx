@@ -44,6 +44,15 @@ export function Navbar() {
           <Link href="/tabs">
             <Button variant="outline">View All Tabs</Button>
           </Link>
+          {isLoggedIn ? (
+            <Button variant="ghost" onClick={handleLogout}>
+              Logout
+            </Button>
+          ) : (
+            <Link href="/login">
+              <Button variant="ghost">Login</Button>
+            </Link>
+          )}
         </div>
       </div>
     </nav>
