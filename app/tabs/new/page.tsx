@@ -33,6 +33,7 @@ export default function CreateTab() {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [venmoUsername, setVenmoUsername] = useState('');
   const [people, setPeople] = useState<Person[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   
@@ -125,6 +126,7 @@ export default function CreateTab() {
         userId,
         title,
         description,
+        venmoUsername,
         people,
         items,
         createdAt: serverTimestamp(),
@@ -197,6 +199,17 @@ export default function CreateTab() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Your Venmo Username</label>
+              <input
+                type="text"
+                value={venmoUsername}
+                onChange={(e) => setVenmoUsername(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                required
+                placeholder="@username"
               />
             </div>
           </div>

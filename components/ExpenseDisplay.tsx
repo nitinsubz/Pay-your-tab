@@ -1,3 +1,4 @@
+import React from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { db } from "@/firebaseConfig"
@@ -12,6 +13,25 @@ interface ExpenseDisplayProps {
 }
 
 export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, documentId }: ExpenseDisplayProps) {
+  const [venmoUsername, setVenmoUsername] = React.useState<string>("")
+  
+  React.useEffect(() => {
+    const fetchVenmoUsername = async () => {
+      try {
+        const tabRef = doc(db, "tabs", documentId)
+        const docSnap = await getDoc(tabRef)
+        const data = docSnap.data()
+        if (data?.venmoUsername) {
+          setVenmoUsername(data.venmoUsername)
+        }
+      } catch (error) {
+        console.error("Error fetching venmo username:", error)
+      }
+    }
+
+    fetchVenmoUsername()
+  }, [documentId])
+
   const total = Object.values(expenses).reduce((sum, expense) => sum + expense, 0)
 
   const formatAmount = (amount: number) => {
@@ -86,12 +106,12 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
         {!isPaid ? (
           <>
             {total > 0 && (
-              <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=pay&recipients=nitinsub&amount=${total.toFixed(2)}&note=USC WEEKEND`}>
+              <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=pay&recipients=${venmoUsername}&amount=${total.toFixed(2)}&note=USC WEEKEND`}>
                 Click to Venmo
               </Button>
             )}
             {total <= 0 && (
-              <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=req&recipients=nitinsub&amount=${(-total).toFixed(2)}&note=USC WEEKEND REIMBURSEMENT`}>
+              <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=req&recipients=${venmoUsername}&amount=${(-total).toFixed(2)}&note=USC WEEKEND REIMBURSEMENT`}>
                 Click to Venmo Request
               </Button>
             )}
