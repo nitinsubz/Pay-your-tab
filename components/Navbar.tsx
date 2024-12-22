@@ -2,12 +2,14 @@
 
 import { signOut } from 'firebase/auth';
 import { auth } from '@/firebaseConfig';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -28,21 +30,22 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 p-4 flex justify-end gap-4 bg-white/80 backdrop-blur-sm border-b">
-      <Link 
-        href="/tabs" 
-        className="px-4 py-2 rounded-md bg-black text-white hover:bg-gray-400 hover:text-black transition-colors"
-      >
-        Create a tab
-      </Link>
-      {isLoggedIn && (
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-        >
-          Logout
-        </button>
-      )}
+    <nav className="border-b">
+      <div className="flex h-16 items-center justify-between px-4">
+        <Link href="/" className="font-bold">
+          PayYourTab
+        </Link>
+        <div className="flex gap-2">
+          {pathname === '/tabs' && (
+            <Link href="/tabs/new">
+              <Button variant="default">Create New Tab</Button>
+            </Link>
+          )}
+          <Link href="/tabs">
+            <Button variant="outline">View All Tabs</Button>
+          </Link>
+        </div>
+      </div>
     </nav>
   )
 }

@@ -2,10 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import { ExpenseDisplay } from '@/components/ExpenseDisplay'
-import { expensesData } from '../../data/expenses'
-import { useParams } from 'next/navigation'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore'
 import { db } from '@/firebaseConfig'
+import { useParams } from 'next/navigation'
+
+interface Person {
+  name: string;
+  phoneNumber: string;
+}
+
+interface Item {
+  name: string;
+  splits: {
+    amount: number;
+    personName: string;
+  }[];
+  totalAmount: number;
+}
 
 export default function Home() {
   const [name, setName] = useState('')
@@ -15,85 +28,100 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [tabExists, setTabExists] = useState(true);
   const [title, setTitle] = useState('');
+  const [allUsers, setAllUsers] = useState<string[]>([]);
+  const [expensesData, setExpensesData] = useState<Record<string, Record<string, number>>>({});
+  const [items, setItems] = useState<Item[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
 
   useEffect(() => {
-    // Read initial name from URL param or hash
     const urlId = params.id as string
-    const hashName = window.location.hash.slice(1) // Remove the # symbol
+    const hashName = window.location.hash.slice(1)
 
-    // First try to match the hash
-    if (hashName) {
-      const matchingHashName = Object.keys(expensesData).find(
-        name => name.toLowerCase() === hashName.toLowerCase()
-      )
-      if (matchingHashName) {
-        setName(matchingHashName)
-        setExpenses(expensesData[matchingHashName])
-      }
-    } else {
-      // If no hash match, try to match the URL param
-      const matchingName = Object.keys(expensesData).find(
-        name => name.toLowerCase() === urlId.toLowerCase()
-      )
-      if (matchingName) {
-        setName(matchingName)
-        setExpenses(expensesData[matchingName])
-      }
-    }
-
-    // Always fetch tab data regardless of hash or URL param
-    const fetchTabs = async () => {
+    const fetchTabAndExpenses = async () => {
       try {
-        const docRef = doc(db, 'tabs', urlId);
-        const docSnap = await getDoc(docRef);
+        const tabDocRef = doc(db, 'tabs', urlId);
+        const tabDocSnap = await getDoc(tabDocRef);
 
-        if (docSnap.exists()) {
-          const tabData = docSnap.data();
+        if (tabDocSnap.exists()) {
+          const tabData = tabDocSnap.data();
           setDescription(tabData.description || '');
-          setTitle(tabData.title)
+          setTitle(tabData.title);
+          setPeople(tabData.people || []);
+          setItems(tabData.items || []);
           setTabExists(true);
+
+          // Calculate expenses per person
+          const expensesMap: Record<string, Record<string, number>> = {};
+          
+          // Initialize expenses map for each person
+          tabData.people.forEach((person: Person) => {
+            expensesMap[person.name] = {};
+          });
+
+          // Calculate expenses from items
+          tabData.items.forEach((item: Item) => {
+            item.splits.forEach((split) => {
+              if (expensesMap[split.personName]) {
+                expensesMap[split.personName][item.name] = split.amount;
+              }
+            });
+          });
+
+          setExpensesData(expensesMap);
+          setAllUsers(tabData.people.map((p: Person) => p.name));
+
+          // Set expenses based on hash
+          if (hashName) {
+            const matchingHashName = tabData.people.find(
+              (p: Person) => p.name.toLowerCase() === hashName.toLowerCase()
+            )?.name;
+            if (matchingHashName && expensesMap[matchingHashName]) {
+              setName(matchingHashName);
+              setExpenses(expensesMap[matchingHashName]);
+            }
+          }
         } else {
-          console.log("No such document!");
           setTabExists(false);
         }
       } catch (error) {
-        console.error("Error fetching document:", error);
+        console.error("Error fetching data:", error);
         setTabExists(false);
       }
       setLoading(false);
     };
 
-    fetchTabs();
-  }, [params.id])
+    fetchTabAndExpenses();
+  }, [params.id]);
 
-  // Modify the hash change effect
+  // Modify the hash change effect to use expensesData from state
   useEffect(() => {
     const handleHashChange = () => {
       const hashName = window.location.hash.slice(1)
-      const matchingName = Object.keys(expensesData).find(
-        name => name.toLowerCase() === hashName.toLowerCase()
-      )
-      if (matchingName) {
-        setName(matchingName)
-        setExpenses(expensesData[matchingName])
-        setLoading(false)
+      if (expensesData) {  // Add check for expensesData
+        const matchingName = Object.keys(expensesData).find(
+          name => name.toLowerCase() === hashName.toLowerCase()
+        )
+        if (matchingName) {
+          setName(matchingName)
+          setExpenses(expensesData[matchingName])
+          setLoading(false)
+        }
       }
     }
 
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [])
+  }, [expensesData])  // Add expensesData as dependency
 
   useEffect(() => {
-    // Update URL when name changes through select
-    if (name) {
+    if (name && expensesData) {  // Add check for expensesData
       window.location.hash = name
       setExpenses(expensesData[name])
     } else {
       window.location.hash = ''
       setExpenses(null)
     }
-  }, [name])
+  }, [name, expensesData])  // Add expensesData as dependency
 
   const getComponent = () => {
     if (loading) {
@@ -126,7 +154,7 @@ export default function Home() {
             className="w-full px-4 py-2 border border-gray-300 rounded-md"
           >
             <option value="">Select your name</option>
-            {Object.keys(expensesData).map((person) => (
+            {allUsers.map((person) => (
               <option key={person} value={person}>
                 {person}
               </option>

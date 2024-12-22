@@ -53,9 +53,9 @@ export default function TabsDashboard() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-8">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <main className="container mx-auto px-4 py-8 pt-20">
+      <main className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">
           Welcome, {user?.displayName || user?.email}
         </h1>

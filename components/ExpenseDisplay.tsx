@@ -8,7 +8,6 @@ interface ExpenseDisplayProps {
 
 export function ExpenseDisplay({ expenses, name }: ExpenseDisplayProps) {
   let total = Object.values(expenses).reduce((sum, expense) => sum + expense, 0)
-  if (total > 0) total = total + 0.01
 
   const formatAmount = (amount: number) => {
     return amount < 0 
