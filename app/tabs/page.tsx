@@ -7,7 +7,6 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/firebaseConfig';
 import { Navbar } from '@/components/Navbar';
 import { useRouter } from 'next/navigation';
-import { sendSMS } from '@/api/sms/sendSMS';
 
 
 export default function TabsDashboard() {
@@ -46,11 +45,6 @@ export default function TabsDashboard() {
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
     </div>;
   }
-
-  const handTextBlast = () => {
-    sendSMS({message: "hey", recipients: ['4084976281']});
-  };
-
 
   return (
     <div className="min-h-screen bg-gray-50">
