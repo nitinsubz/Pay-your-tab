@@ -24,7 +24,6 @@ export default function TabsDashboard() {
       }
       
       setUser(currentUser);
-      console.log(currentUser.uid);
       // Fetch user's tabs
       const tabsRef = collection(db, 'tabs');
       const q = query(tabsRef, where('userId', '==', currentUser.uid));

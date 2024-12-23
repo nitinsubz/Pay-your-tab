@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { db } from "@/firebaseConfig"
 import { doc, updateDoc, getDoc } from "firebase/firestore"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface ExpenseDisplayProps {
   expenses: Record<string, number>
@@ -14,6 +15,7 @@ interface ExpenseDisplayProps {
 
 export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, documentId }: ExpenseDisplayProps) {
   const [venmoUsername, setVenmoUsername] = React.useState<string>("")
+  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false)
   
   React.useEffect(() => {
     const fetchVenmoUsername = async () => {
@@ -81,51 +83,79 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
   }
 
   return (
-    <Card className={`w-full max-w-md ${isPaid ? 'bg-green-50' : ''}`}>
-      <CardHeader>
-        <CardTitle>{name}&apos;s Expenses</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="space-y-2">
-          {Object.entries(expenses).map(([category, amount]) => (
-            <li 
-              key={category} 
-  className={`flex justify-between ${amount < 0 ? 'text-blue-600' : ''}`}
-  >
-              <span>{category}</span>
-              <span>{formatAmount(amount)}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-4 text-xl font-bold flex justify-between">
-          <span>Total</span>
-          <span>{formatAmount(total)}</span>
-        </div>
-      </CardContent>
-      <CardFooter className="flex flex-col gap-2">
-        {!isPaid ? (
-          <>
-            {total > 0 && (
-              <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=pay&recipients=${venmoUsername}&amount=${total.toFixed(2)}&note=USC WEEKEND`}>
-                Click to Venmo
-              </Button>
-            )}
-            {total <= 0 && (
-              <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=req&recipients=${venmoUsername}&amount=${(-total).toFixed(2)}&note=USC WEEKEND REIMBURSEMENT`}>
-                Click to Venmo Request
-              </Button>
-            )}
-            <Button variant="outline" className="w-full" onClick={handleMarkPaid}>
-              Mark as Paid
-            </Button>
-          </>
-        ) : (
-          <div className="text-center text-green-600 font-medium">
-            Paid ✓
+    <>
+      <Card className={`w-full max-w-md ${isPaid ? 'bg-green-50' : ''}`}>
+        <CardHeader>
+          <CardTitle>{name}&apos;s Expenses</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2">
+            {Object.entries(expenses).map(([category, amount]) => (
+              <li 
+                key={category} 
+                className={`flex justify-between ${amount < 0 ? 'text-blue-600' : ''}`}
+              >
+                <span>{category}</span>
+                <span>{formatAmount(amount)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4 text-xl font-bold flex justify-between">
+            <span>Total</span>
+            <span>{formatAmount(total)}</span>
           </div>
-        )}
-      </CardFooter>
-    </Card>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-2">
+          {!isPaid ? (
+            <>
+              {total > 0 && (
+                <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=pay&recipients=${venmoUsername}&amount=${total.toFixed(2)}&note=USC WEEKEND`}>
+                  Click to Venmo
+                </Button>
+              )}
+              {total <= 0 && (
+                <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=req&recipients=${venmoUsername}&amount=${(-total).toFixed(2)}&note=USC WEEKEND REIMBURSEMENT`}>
+                  Click to Venmo Request
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={() => setShowConfirmDialog(true)}
+              >
+                Mark as Paid
+              </Button>
+            </>
+          ) : (
+            <div className="text-center text-green-600 font-medium">
+              Paid ✓
+            </div>
+          )}
+        </CardFooter>
+      </Card>
+
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Payment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to mark this as paid? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setShowConfirmDialog(false)
+              handleMarkPaid()
+            }}>
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
