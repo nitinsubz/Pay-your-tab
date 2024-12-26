@@ -16,7 +16,7 @@ interface ExpenseDisplayProps {
 export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, documentId }: ExpenseDisplayProps) {
   const [venmoUsername, setVenmoUsername] = React.useState<string>("")
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false)
-  
+  const [tabTitle, setTabTitle] = React.useState<string>("")
   React.useEffect(() => {
     const fetchVenmoUsername = async () => {
       try {
@@ -25,6 +25,7 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
         const data = docSnap.data()
         if (data?.venmoUsername) {
           setVenmoUsername(data.venmoUsername)
+          setTabTitle(data.title)
         }
       } catch (error) {
         console.error("Error fetching venmo username:", error)
@@ -109,12 +110,12 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
           {!isPaid ? (
             <>
               {total > 0 && (
-                <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=pay&recipients=${venmoUsername}&amount=${total.toFixed(2)}&note=USC WEEKEND`}>
+                <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=pay&recipients=${venmoUsername}&amount=${total.toFixed(2)}&note=${tabTitle}`}>
                   Click to Venmo
                 </Button>
               )}
               {total <= 0 && (
-                <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=req&recipients=${venmoUsername}&amount=${(-total).toFixed(2)}&note=USC WEEKEND REIMBURSEMENT`}>
+                <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=req&recipients=${venmoUsername}&amount=${(-total).toFixed(2)}&note=${tabTitle}`}>
                   Click to Venmo Request
                 </Button>
               )}
