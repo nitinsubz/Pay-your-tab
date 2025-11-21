@@ -104,6 +104,7 @@ export default function Home() {
     };
     console.log(paid);
     fetchTabAndExpenses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   // Modify the hash change effect to use expensesData from state

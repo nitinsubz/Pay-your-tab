@@ -5,6 +5,8 @@ import { loginWithGoogle, logout } from "@/lib/authutils";
 import { User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { db } from '@/firebaseConfig';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function LoginPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -14,7 +16,30 @@ export default function LoginPage() {
     const { success, user, error } = await loginWithGoogle();
     if (success && user) {
       setUser(user);
-      router.push('/tabs'); 
+      // Create user profile if it doesn't exist
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) {
+          await setDoc(userRef, {
+            email: user.email,
+            displayName: user.displayName,
+            createdAt: serverTimestamp()
+          });
+        }
+        
+        // Check if user has venmo username set
+        const updatedSnap = await getDoc(userRef);
+        if (!updatedSnap.exists() || !updatedSnap.data()?.venmoUsername) {
+          // Redirect to settings to set venmo username
+          router.push('/settings?setup=true');
+        } else {
+          router.push('/tabs');
+        }
+      } catch (error) {
+        console.error('Error handling login:', error);
+        router.push('/tabs'); // Fallback to tabs page
+      }
     } else {
       console.error(error);
     }
