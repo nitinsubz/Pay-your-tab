@@ -43,6 +43,44 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
       : `$${amount.toFixed(2)}`
   }
 
+  const isMobile = () => {
+    if (typeof window === 'undefined') return false
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           (window.innerWidth <= 768 && 'ontouchstart' in window)
+  }
+
+  const getVenmoLink = (amount: number, isRequest: boolean = false) => {
+    const encodedNote = encodeURIComponent(tabTitle)
+    const formattedAmount = Math.abs(amount).toFixed(2)
+    
+    if (isMobile()) {
+      // Mobile format: venmo://paycharge
+      if (isRequest) {
+        return `venmo://paycharge?txn=req&recipients=${venmoUsername}&amount=${formattedAmount}&note=${tabTitle}`
+      } else {
+        return `venmo://paycharge?txn=pay&recipients=${venmoUsername}&amount=${formattedAmount}&note=${tabTitle}`
+      }
+    } else {
+      // Web format: https://venmo.com/YourUsername?txn=pay&amount=XX.XX&note=Your+Note
+      if (isRequest) {
+        return `https://venmo.com/${venmoUsername}?txn=req&amount=${formattedAmount}&note=${encodedNote}`
+      } else {
+        return `https://venmo.com/${venmoUsername}?txn=pay&amount=${formattedAmount}&note=${encodedNote}`
+      }
+    }
+  }
+
+  const handleVenmoClick = (amount: number, isRequest: boolean = false) => {
+    const link = getVenmoLink(amount, isRequest)
+    if (isMobile()) {
+      // Mobile: navigate in same window for deep links
+      window.location.href = link
+    } else {
+      // Web: open in new tab
+      window.open(link, '_blank')
+    }
+  }
+
   const handleMarkPaid = async () => {
     try {
       const expenseRef = doc(db, "tabs", documentId)
@@ -110,12 +148,12 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
           {!isPaid ? (
             <>
               {total > 0 && (
-                <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=pay&recipients=${venmoUsername}&amount=${total.toFixed(2)}&note=${tabTitle}`}>
+                <Button className="w-full" onClick={() => handleVenmoClick(total, false)}>
                   Click to Venmo
                 </Button>
               )}
               {total <= 0 && (
-                <Button className="w-full" onClick={() => window.location.href = `venmo://paycharge?txn=req&recipients=${venmoUsername}&amount=${(-total).toFixed(2)}&note=${tabTitle}`}>
+                <Button className="w-full" onClick={() => handleVenmoClick(-total, true)}>
                   Click to Venmo Request
                 </Button>
               )}
