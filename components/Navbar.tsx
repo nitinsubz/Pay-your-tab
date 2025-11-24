@@ -30,10 +30,20 @@ export function Navbar() {
   };
 
   return (
-    <nav className="border-b">
+    <nav className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="flex h-16 items-center justify-between px-4">
-        <Link href="/" className="font-bold">
-          PayYourTab
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-lg blur-sm opacity-50 group-hover:opacity-75 transition-opacity"></div>
+            <div className="relative w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 flex items-center justify-center transform group-hover:scale-105 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          </div>
+          <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent group-hover:from-indigo-700 group-hover:via-purple-700 group-hover:to-pink-700 transition-all tracking-tight">
+            Tab<span className="text-slate-900">Wrapped</span>
+          </span>
         </Link>
         <div className="flex gap-2">
           {pathname === '/tabs' && (

@@ -14,8 +14,12 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Pay Your Tab",
+  title: "TabWrapped",
   description: "It's like spotify wrapped, except its the tab your broke ass ran up and now you're even more broke, wrapped.",
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-icon.svg',
+  },
 };
 
 export default function RootLayout({
