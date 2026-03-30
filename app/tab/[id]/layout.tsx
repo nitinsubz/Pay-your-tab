@@ -11,7 +11,7 @@ const ogImageDims = { width: 1200, height: 630, alt: 'TabWrapped' as const };
 function ogImageMeta(base: URL) {
   return [
     {
-      url: new URL('/opengraph-image', base).toString(),
+      url: new URL('/tab/[id]/opengraph-image', base).toString(),
       ...ogImageDims,
     },
   ];
@@ -25,7 +25,10 @@ export async function generateMetadata({
   const { id } = await params;
   const base = getSiteOrigin();
   const tab = await getTabShareMetadata(id);
-  const ogImages = ogImageMeta(base);
+  const ogImages = ogImageMeta(base).map((img) => ({
+    ...img,
+    url: img.url.replace('/tab/[id]/opengraph-image', `/tab/${id}/opengraph-image`),
+  }));
   const pageUrl = new URL(`/tab/${id}`, base).toString();
 
   if (!tab) {
