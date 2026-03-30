@@ -239,7 +239,7 @@ export default function TabsDashboard() {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => router.push(`/tab/${tab.id}`)}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2"
@@ -248,6 +248,12 @@ export default function TabsDashboard() {
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
+                      </button>
+                      <button
+                        onClick={() => router.push(`/tabs/new?editId=${tab.id}`)}
+                        className="bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 px-4 py-2 rounded-md transition-colors duration-200 text-sm font-medium"
+                      >
+                        Edit
                       </button>
                       <button
                         onClick={() => handleDeleteClick(tab)}
@@ -297,7 +303,7 @@ export default function TabsDashboard() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => router.push(`/tab/${tab.id}`)}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center gap-2"
@@ -306,6 +312,12 @@ export default function TabsDashboard() {
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
+                      </button>
+                      <button
+                        onClick={() => router.push(`/tabs/new?editId=${tab.id}`)}
+                        className="bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 px-4 py-2 rounded-md transition-colors duration-200 text-sm font-medium"
+                      >
+                        Edit
                       </button>
                       <button
                         onClick={() => handleDeleteClick(tab)}

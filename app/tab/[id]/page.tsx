@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { ExpenseDisplay } from '@/components/ExpenseDisplay'
 import { doc, getDoc } from 'firebase/firestore'
-import { db } from '@/firebaseConfig'
+import { db, auth } from '@/firebaseConfig'
+import { onAuthStateChanged } from 'firebase/auth'
 import { useParams } from 'next/navigation'
 import {
   aggregateExpensesFromBills,
@@ -45,6 +47,14 @@ export default function Home() {
   const [paid, setPaid] = useState(false);
   const [paidStatusCache, setPaidStatusCache] = useState<Record<string, boolean>>({});
   const [bills, setBills] = useState<TripBill[]>([]);
+  const [tabOwnerId, setTabOwnerId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setCurrentUserId(u?.uid ?? null));
+    return () => unsub();
+  }, []);
+
   useEffect(() => {
     const urlId = params.id as string
     const hashName = window.location.hash.slice(1)
@@ -59,6 +69,7 @@ export default function Home() {
           setDescription(tabData.description || '');
           setTitle(tabData.title);
           setTabExists(true);
+          setTabOwnerId(tabData.userId ?? null);
 
           const billList = getBillsFromDocument(tabData);
           setBills(billList);
@@ -89,11 +100,13 @@ export default function Home() {
         } else {
           setTabExists(false);
           setBills([]);
+          setTabOwnerId(null);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
         setTabExists(false);
         setBills([]);
+        setTabOwnerId(null);
       }
       setLoading(false);
     };
@@ -188,8 +201,14 @@ export default function Home() {
                           )}
                         </p>
                       </div>
-                      <span className="text-sm font-semibold text-slate-800 shrink-0">
-                        ${billSum.toFixed(2)}
+                      <span
+                        className={`text-sm font-semibold shrink-0 ${
+                          billSum < 0 ? 'text-blue-600' : 'text-slate-800'
+                        }`}
+                      >
+                        {billSum < 0
+                          ? `-$${Math.abs(billSum).toFixed(2)}`
+                          : `$${billSum.toFixed(2)}`}
                       </span>
                     </li>
                   );
@@ -197,12 +216,34 @@ export default function Home() {
               </ul>
               <div className="px-4 py-3 bg-slate-50/80 border-t border-slate-100 flex justify-between items-center">
                 <span className="text-sm font-medium text-slate-700">Trip total (splits)</span>
-                <span className="text-lg font-bold text-indigo-700">${grandTotal.toFixed(2)}</span>
+                <span
+                  className={`text-lg font-bold ${
+                    grandTotal < 0 ? 'text-blue-600' : 'text-indigo-700'
+                  }`}
+                >
+                  {grandTotal < 0
+                    ? `-$${Math.abs(grandTotal).toFixed(2)}`
+                    : `$${grandTotal.toFixed(2)}`}
+                </span>
               </div>
             </div>
             <p className="text-center text-xs text-slate-500 mt-3">
               Pick your name below to see what you owe across {isTrip ? 'all of these expenses' : 'this tab'} — one Venmo total.
             </p>
+          </div>
+        )}
+
+        {currentUserId && tabOwnerId && currentUserId === tabOwnerId && (
+          <div className="w-full max-w-xl mx-auto flex justify-center mb-6">
+            <Link
+              href={`/tabs/new?editId=${params.id as string}`}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit trip tab
+            </Link>
           </div>
         )}
 

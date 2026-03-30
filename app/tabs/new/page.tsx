@@ -12,6 +12,8 @@ import { createEmptyBill, normalizeTripBill, billUsesTaxTip, sumBillSplits, type
 
 interface Person {
   name: string;
+  phoneNumber?: string;
+  paid?: boolean;
 }
 
 interface ItemSplit {
@@ -23,6 +25,22 @@ interface Item {
   name: string;
   totalAmount: number;
   splits: ItemSplit[];
+}
+
+/** Firestore rejects `undefined` values — strip nested objects (e.g. people.paid, bill.useTaxTip). */
+function stripUndefinedDeep<T>(value: T): T {
+  if (value === undefined || value === null) return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefinedDeep(item)) as T;
+  }
+  if (typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v !== undefined) {
+      out[k] = typeof v === 'object' && v !== null ? stripUndefinedDeep(v) : v;
+    }
+  }
+  return out as T;
 }
 
 function migrateDraftToBills(draftData: Record<string, unknown>): TripBill[] {
@@ -71,8 +89,11 @@ function CreateTabContent() {
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   
-  // Draft management
+  // Draft management / existing document id (draft or active tab being edited)
   const [draftId, setDraftId] = useState<string | null>(null);
+  /** True when editing a published tab — auto-save keeps status active and preserves payment state. */
+  const [isEditingActiveTab, setIsEditingActiveTab] = useState(false);
+  const [editLoadError, setEditLoadError] = useState<string | null>(null);
   const [isLoadingDraft, setIsLoadingDraft] = useState(true);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialLoadRef = useRef(false);
@@ -105,9 +126,39 @@ function CreateTabContent() {
           }
         }
         
-        // Load draft if draftId is in URL
+        const editIdParam = searchParams.get('editId');
         const draftIdParam = searchParams.get('draftId');
-        if (draftIdParam) {
+
+        if (editIdParam) {
+          const tabRef = doc(db, 'tabs', editIdParam);
+          const tabSnap = await getDoc(tabRef);
+          if (tabSnap.exists()) {
+            const tabData = tabSnap.data();
+            if (tabData.userId === user.uid && tabData.status === 'active') {
+              setDraftId(editIdParam);
+              setIsEditingActiveTab(true);
+              setTitle(tabData.title || '');
+              setDescription(tabData.description || '');
+              setVenmoUsername(tabData.venmoUsername || userSnap.data()?.venmoUsername || '');
+              setPeople(
+                (tabData.people || []).map((p: { name: string; paid?: boolean; phoneNumber?: string }) => ({
+                  name: p.name,
+                  paid: p.paid,
+                  phoneNumber: p.phoneNumber
+                }))
+              );
+              setBills(migrateDraftToBills(tabData as Record<string, unknown>));
+            } else {
+              setEditLoadError(
+                tabData.userId !== user.uid
+                  ? 'You can only edit your own tabs.'
+                  : 'Only published tabs can be opened for editing this way.'
+              );
+            }
+          } else {
+            setEditLoadError('That tab could not be found.');
+          }
+        } else if (draftIdParam) {
           const draftRef = doc(db, 'tabs', draftIdParam);
           const draftSnap = await getDoc(draftRef);
           
@@ -115,11 +166,17 @@ function CreateTabContent() {
             const draftData = draftSnap.data();
             if (draftData.status === 'draft' && draftData.userId === user.uid) {
               setDraftId(draftIdParam);
+              setIsEditingActiveTab(false);
               setTitle(draftData.title || '');
               setDescription(draftData.description || '');
-              // Use draft venmo if exists, otherwise use profile venmo
               setVenmoUsername(draftData.venmoUsername || userSnap.data()?.venmoUsername || '');
-              setPeople((draftData.people || []).map((p: { name: string }) => ({ name: p.name })));
+              setPeople(
+                (draftData.people || []).map((p: { name: string; paid?: boolean; phoneNumber?: string }) => ({
+                  name: p.name,
+                  paid: p.paid,
+                  phoneNumber: p.phoneNumber
+                }))
+              );
               setBills(migrateDraftToBills(draftData as Record<string, unknown>));
             }
           }
@@ -156,9 +213,9 @@ function CreateTabContent() {
         title,
         description,
         venmoUsername,
-        people,
-        bills,
-        status: 'draft',
+        people: stripUndefinedDeep(people),
+        bills: stripUndefinedDeep(bills),
+        status: isEditingActiveTab ? ('active' as const) : ('draft' as const),
         updatedAt: serverTimestamp()
       };
 
@@ -176,7 +233,7 @@ function CreateTabContent() {
     } catch (error) {
       console.error('Error auto-saving draft:', error);
     }
-  }, [title, description, venmoUsername, people, bills, draftId]);
+  }, [title, description, venmoUsername, people, bills, draftId, isEditingActiveTab]);
 
   // Debounced auto-save
   useEffect(() => {
@@ -295,7 +352,14 @@ function CreateTabContent() {
 
   const handleAddItem = () => {
     const billId = editingItem?.billId ?? itemTargetBillId;
-    if (!billId || !newItem.name || newItem.totalAmount <= 0 || selectedPeople.length === 0) return;
+    if (
+      !billId ||
+      !newItem.name.trim() ||
+      newItem.totalAmount === 0 ||
+      Number.isNaN(newItem.totalAmount) ||
+      selectedPeople.length === 0
+    )
+      return;
 
     const splits = Array.from(newItem.customSplits.entries())
       .filter(([name]) => selectedPeople.includes(name))
@@ -429,18 +493,22 @@ function CreateTabContent() {
         title,
         description,
         venmoUsername,
-        people,
-        bills,
-        status: 'active',
+        people: stripUndefinedDeep(people),
+        bills: stripUndefinedDeep(bills),
+        status: 'active' as const,
         updatedAt: serverTimestamp()
       };
 
       if (draftId) {
         const draftRef = doc(db, 'tabs', draftId);
-        await updateDoc(draftRef, {
-          ...tabData,
-          createdAt: serverTimestamp()
-        });
+        if (isEditingActiveTab) {
+          await updateDoc(draftRef, tabData);
+        } else {
+          await updateDoc(draftRef, {
+            ...tabData,
+            createdAt: serverTimestamp()
+          });
+        }
         router.push(`/tab/${draftId}`);
       } else {
         const docRef = await addDoc(collection(db, 'tabs'), {
@@ -511,6 +579,22 @@ function CreateTabContent() {
     );
   }
 
+  if (editLoadError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <main className="container mx-auto px-4 py-8 pt-20 max-w-lg">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center shadow-sm">
+            <p className="text-red-900">{editLoadError}</p>
+            <Button className="mt-6" onClick={() => router.push('/tabs')}>
+              Back to my tabs
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // Step indicator
   const steps = [
     { number: 1, title: 'Trip' },
@@ -524,10 +608,17 @@ function CreateTabContent() {
       <Navbar />
       <main className="container mx-auto px-4 py-8 pt-20 max-w-4xl">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">New trip tab</h1>
-          {draftId && (
+          <h1 className="text-3xl font-bold">
+            {isEditingActiveTab ? 'Edit trip tab' : 'New trip tab'}
+          </h1>
+          {draftId && !isEditingActiveTab && (
             <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
               Draft saved automatically
+            </span>
+          )}
+          {isEditingActiveTab && (
+            <span className="text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full">
+              Editing published tab — changes save automatically
             </span>
           )}
         </div>
@@ -728,7 +819,18 @@ function CreateTabContent() {
                           <li key={`${bill.id}-${index}`} className="p-3 bg-white rounded-lg border border-slate-100 flex justify-between gap-3">
                             <div>
                               <div className="font-medium">{item.name}</div>
-                              <div className="text-indigo-600 text-sm font-semibold">${item.totalAmount.toFixed(2)}</div>
+                              <div
+                                className={`text-sm font-semibold ${
+                                  item.totalAmount < 0 ? 'text-blue-600' : 'text-indigo-600'
+                                }`}
+                              >
+                                {item.totalAmount < 0
+                                  ? `-$${Math.abs(item.totalAmount).toFixed(2)}`
+                                  : `$${item.totalAmount.toFixed(2)}`}
+                                {item.totalAmount < 0 && (
+                                  <span className="ml-1 text-xs font-normal text-slate-500">credit</span>
+                                )}
+                              </div>
                             </div>
                             <div className="flex gap-2 shrink-0">
                               <button
@@ -901,7 +1003,7 @@ function CreateTabContent() {
                 );
                 const difference = Math.abs(calculatedTotal - expectedTotal);
                 const tolerance = 0.05;
-                const isValid = expectedTotal > 0 && difference <= tolerance;
+                const isValid = difference <= tolerance;
 
                 return (
                   <div
@@ -957,7 +1059,11 @@ function CreateTabContent() {
                 onClick={handleSubmit}
                 disabled={!title || !venmoUsername || people.length === 0 || !billsReady()}
               >
-                {!venmoUsername ? 'Set Venmo Username First' : 'Create trip tab'}
+                {!venmoUsername
+                  ? 'Set Venmo Username First'
+                  : isEditingActiveTab
+                    ? 'Save changes'
+                    : 'Create trip tab'}
               </Button>
             )}
           </div>
@@ -1079,7 +1185,9 @@ function CreateTabContent() {
             <DialogHeader>
               <DialogTitle>{editingItem !== null ? 'Edit line item' : 'Add line item'}</DialogTitle>
               <DialogDescription>
-                {editingItem !== null ? 'Edit this line item.' : 'Add a line to this expense. Do not include tax and tip in the amount.'}
+                {editingItem !== null
+                  ? 'Edit this line item. Negative amounts count as credits.'
+                  : 'Add a line to this expense. Use a negative total for a credit. For tax & tip, leave amounts pre-tax unless you turned on tax & tip for this receipt.'}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -1095,22 +1203,25 @@ function CreateTabContent() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                <p className="text-xs text-gray-500 mb-1">Use a negative amount for a credit (reduces what someone owes).</p>
                 <input
                   type="number"
                   step="0.01"
                   placeholder="0.00"
-                  value={newItem.totalAmount || ''}
+                  value={newItem.totalAmount === 0 ? '' : newItem.totalAmount}
                   onChange={(e) => {
-                    const value = parseFloat(e.target.value);
-                    setNewItem({ ...newItem, totalAmount: value || 0 });
-                    // Recalculate splits when amount changes
-                    if (selectedPeople.length > 0 && value > 0) {
+                    const raw = e.target.value;
+                    const value = parseFloat(raw);
+                    const nextAmount = raw === '' || Number.isNaN(value) ? 0 : value;
+                    if (selectedPeople.length > 0 && raw !== '' && !Number.isNaN(value)) {
                       const splitAmount = value / selectedPeople.length;
-                      const newSplits = new Map();
-                      selectedPeople.forEach(person => {
+                      const newSplits = new Map<string, number>();
+                      selectedPeople.forEach((person) => {
                         newSplits.set(person, splitAmount);
                       });
-                      setNewItem(prev => ({ ...prev, customSplits: newSplits }));
+                      setNewItem((prev) => ({ ...prev, totalAmount: nextAmount, customSplits: newSplits }));
+                    } else {
+                      setNewItem((prev) => ({ ...prev, totalAmount: nextAmount }));
                     }
                   }}
                   className="w-full rounded-md border-gray-300"
@@ -1169,7 +1280,12 @@ function CreateTabContent() {
               </Button>
               <Button 
                 onClick={handleAddItem}
-                disabled={!newItem.name || !newItem.totalAmount || selectedPeople.length === 0}
+                disabled={
+                  !newItem.name.trim() ||
+                  newItem.totalAmount === 0 ||
+                  Number.isNaN(newItem.totalAmount) ||
+                  selectedPeople.length === 0
+                }
               >
                 {editingItem !== null ? 'Update line item' : 'Add line item'}
               </Button>

@@ -152,10 +152,15 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
                   Click to Venmo
                 </Button>
               )}
-              {total <= 0 && (
+              {total < 0 && (
                 <Button className="w-full" onClick={() => handleVenmoClick(-total, true)}>
                   Click to Venmo Request
                 </Button>
+              )}
+              {total === 0 && (
+                <p className="text-center text-sm text-slate-600 py-1">
+                  Nothing owed — credits and charges balance out.
+                </p>
               )}
               <Button 
                 variant="outline" 
