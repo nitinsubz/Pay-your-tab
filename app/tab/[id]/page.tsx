@@ -268,11 +268,12 @@ export default function Home() {
             name={name} 
             documentId={params.id as string}
             isPaid={paid}
-            onMarkPaid={() => {
-              setPaid(true);
+            canTogglePaid={Boolean(currentUserId && tabOwnerId && currentUserId === tabOwnerId)}
+            onPaidStatusChange={(nextPaid) => {
+              setPaid(nextPaid);
               setPaidStatusCache(prev => ({
                 ...prev,
-                [name]: true
+                [name]: nextPaid
               }));
             }}
           />

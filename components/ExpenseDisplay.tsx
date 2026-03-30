@@ -9,13 +9,22 @@ interface ExpenseDisplayProps {
   expenses: Record<string, number>
   name: string
   isPaid?: boolean
-  onMarkPaid?: () => void
+  canTogglePaid?: boolean
+  onPaidStatusChange?: (nextPaid: boolean) => void
   documentId: string
 }
 
-export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, documentId }: ExpenseDisplayProps) {
+export function ExpenseDisplay({
+  expenses,
+  name,
+  isPaid = false,
+  canTogglePaid = false,
+  onPaidStatusChange,
+  documentId,
+}: ExpenseDisplayProps) {
   const [venmoUsername, setVenmoUsername] = React.useState<string>("")
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false)
+  const [nextPaidState, setNextPaidState] = React.useState(true)
   const [tabTitle, setTabTitle] = React.useState<string>("")
   React.useEffect(() => {
     const fetchVenmoUsername = async () => {
@@ -81,7 +90,7 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
     }
   }
 
-  const handleMarkPaid = async () => {
+  const handleUpdatePaid = async (nextPaid: boolean) => {
     try {
       const expenseRef = doc(db, "tabs", documentId)
       
@@ -104,7 +113,7 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
       // Update the specific person while preserving their other data
       updatedPeople[personIndex] = {
         ...updatedPeople[personIndex],
-        paid: true
+        paid: nextPaid
       }
 
       // Update the document with the entire new people array
@@ -112,12 +121,12 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
         people: updatedPeople
       })
       
-      if (onMarkPaid) {
-        onMarkPaid()
+      if (onPaidStatusChange) {
+        onPaidStatusChange(nextPaid)
       }
     } catch (error) {
-      console.error("Error marking as paid:", error)
-      alert("Failed to mark as paid. Please try again.")
+      console.error("Error updating paid status:", error)
+      alert("Failed to update paid status. Please try again.")
     }
   }
 
@@ -145,35 +154,45 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-2">
-          {!isPaid ? (
-            <>
-              {total > 0 && (
-                <Button className="w-full" onClick={() => handleVenmoClick(total, false)}>
-                  Click to Venmo
-                </Button>
-              )}
-              {total < 0 && (
-                <Button className="w-full" onClick={() => handleVenmoClick(-total, true)}>
-                  Click to Venmo Request
-                </Button>
-              )}
-              {total === 0 && (
-                <p className="text-center text-sm text-slate-600 py-1">
-                  Nothing owed — credits and charges balance out.
-                </p>
-              )}
-              <Button 
-                variant="outline" 
-                className="w-full" 
-                onClick={() => setShowConfirmDialog(true)}
-              >
-                Mark as Paid
-              </Button>
-            </>
-          ) : (
-            <div className="text-center text-green-600 font-medium">
-              Paid ✓
-            </div>
+          {total > 0 && (
+            <Button className="w-full" onClick={() => handleVenmoClick(total, false)}>
+              Click to Venmo
+            </Button>
+          )}
+          {total < 0 && (
+            <Button className="w-full" onClick={() => handleVenmoClick(-total, true)}>
+              Click to Venmo Request
+            </Button>
+          )}
+          {total === 0 && (
+            <p className="text-center text-sm text-slate-600 py-1">
+              Nothing owed — credits and charges balance out.
+            </p>
+          )}
+          {isPaid && <div className="text-center font-medium text-green-600">Paid ✓</div>}
+          {!isPaid && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setNextPaidState(true)
+                setShowConfirmDialog(true)
+              }}
+            >
+              Mark as Paid
+            </Button>
+          )}
+          {isPaid && canTogglePaid && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setNextPaidState(false)
+                setShowConfirmDialog(true)
+              }}
+            >
+              Mark as Unpaid
+            </Button>
           )}
         </CardFooter>
       </Card>
@@ -181,9 +200,11 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Payment</DialogTitle>
+            <DialogTitle>{nextPaidState ? 'Confirm Payment' : 'Mark as Unpaid?'}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to mark this as paid? This action cannot be undone.
+              {nextPaidState
+                ? 'Are you sure you want to mark this as paid?'
+                : 'Marking unpaid will allow this person to be paid again.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -192,9 +213,9 @@ export function ExpenseDisplay({ expenses, name, isPaid = false, onMarkPaid, doc
             </Button>
             <Button onClick={() => {
               setShowConfirmDialog(false)
-              handleMarkPaid()
+              handleUpdatePaid(nextPaidState)
             }}>
-              Confirm
+              {nextPaidState ? 'Confirm' : 'Mark Unpaid'}
             </Button>
           </DialogFooter>
         </DialogContent>
