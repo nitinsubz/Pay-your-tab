@@ -9,7 +9,7 @@ import { Navbar } from '@/components/Navbar';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
-
+import { getBillsFromDocument, billCountLabel } from '@/lib/tripLedger';
 
 export default function TabsDashboard() {
   const router = useRouter();
@@ -56,9 +56,28 @@ export default function TabsDashboard() {
   interface Tab {
     id: string;
     title?: string;
+    description?: string;
     status: string;
     people?: TabPerson[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    createdAt?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    updatedAt?: any;
   }
+
+  const tripBadge = (tab: Tab) => {
+    try {
+      const n = getBillsFromDocument(tab).length;
+      if (n <= 1) return null;
+      return (
+        <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
+          {billCountLabel(getBillsFromDocument(tab))}
+        </span>
+      );
+    } catch {
+      return null;
+    }
+  };
 
   const handleDeleteClick = (tab: Tab) => {
     setTabToDelete({
@@ -77,7 +96,6 @@ export default function TabsDashboard() {
       const tabRef = doc(db, 'tabs', tabToDelete.id);
       await deleteDoc(tabRef);
       
-      // Refresh tabs list
       await fetchTabs(user.uid);
       
       setDeleteDialogOpen(false);
@@ -96,31 +114,25 @@ export default function TabsDashboard() {
     </div>;
   }
 
-  // Helper function to check if all people have paid
   const isFullyPaid = (tab: Tab) => {
     if (!tab.people || tab.people.length === 0) return false;
     return tab.people.every((person) => person.paid === true);
   };
 
-  // Sort active tabs by creation date (newest first)
   const allActiveTabs = tabs
     .filter(tab => tab.status === 'active')
     .sort((a, b) => {
-      // Handle Firestore timestamps
       const aDate = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt ? new Date(a.createdAt) : new Date(0));
       const bDate = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt ? new Date(b.createdAt) : new Date(0));
-      return bDate.getTime() - aDate.getTime(); // Newest first
+      return bDate.getTime() - aDate.getTime();
     });
 
-  // Split into unpaid and fully paid sections
   const unpaidTabs = allActiveTabs.filter(tab => !isFullyPaid(tab));
   const fullyPaidTabs = allActiveTabs.filter(tab => isFullyPaid(tab));
   
-  // Sort draft tabs by last updated (newest first)
   const draftTabs = tabs
     .filter(tab => tab.status === 'draft')
     .sort((a, b) => {
-      // Use updatedAt for drafts, fallback to createdAt
       const aDate = a.updatedAt?.toDate ? a.updatedAt.toDate() : 
                    (a.createdAt?.toDate ? a.createdAt.toDate() : 
                    (a.updatedAt ? new Date(a.updatedAt) : 
@@ -129,7 +141,7 @@ export default function TabsDashboard() {
                    (b.createdAt?.toDate ? b.createdAt.toDate() : 
                    (b.updatedAt ? new Date(b.updatedAt) : 
                    (b.createdAt ? new Date(b.createdAt) : new Date(0))));
-      return bDate.getTime() - aDate.getTime(); // Newest first
+      return bDate.getTime() - aDate.getTime();
     });
 
   return (
@@ -140,7 +152,6 @@ export default function TabsDashboard() {
           Welcome, {user?.displayName || user?.email}
         </h1>
         
-        {/* Drafts Section */}
         {draftTabs.length > 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg shadow p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -153,7 +164,10 @@ export default function TabsDashboard() {
               {draftTabs.map((tab) => (
                 <li key={tab.id} className="border-b border-yellow-200 pb-4 flex justify-between items-center">
                   <div className="flex-1">
-                    <h3 className="font-medium">{tab.title || 'Untitled Tab'}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-medium">{tab.title || 'Untitled Tab'}</h3>
+                      {tripBadge(tab)}
+                    </div>
                     <p className="text-gray-600 text-sm">{tab.description || 'No description'}</p>
                     <p className="text-xs text-gray-500 mt-1">
                       Last saved: {tab.updatedAt?.toDate ? new Date(tab.updatedAt.toDate()).toLocaleString() : 'Recently'}
@@ -185,7 +199,6 @@ export default function TabsDashboard() {
           </div>
         )}
 
-        {/* Unpaid Tabs Section */}
         {unpaidTabs.length > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-lg shadow p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-red-800">
@@ -196,7 +209,6 @@ export default function TabsDashboard() {
             </h2>
             <ul className="space-y-4">
               {unpaidTabs.map((tab) => {
-                // Count unpaid people
                 const totalPeople = tab.people?.length || 0;
                 const unpaidCount = tab.people?.filter((person: TabPerson) => !person.paid).length || 0;
                 const paidCount = totalPeople - unpaidCount;
@@ -204,7 +216,10 @@ export default function TabsDashboard() {
                 return (
                   <li key={tab.id} className="border-b border-red-200 pb-4 flex justify-between items-center">
                     <div className="flex-1">
-                      <h3 className="font-medium">{tab.title}</h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium">{tab.title}</h3>
+                        {tripBadge(tab)}
+                      </div>
                       <p className="text-gray-600 text-sm">{tab.description}</p>
                       <div className="mt-2 flex items-center gap-4">
                         {totalPeople > 0 ? (
@@ -251,7 +266,6 @@ export default function TabsDashboard() {
           </div>
         )}
 
-        {/* Fully Paid Tabs Section */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -269,7 +283,10 @@ export default function TabsDashboard() {
                 return (
                   <li key={tab.id} className="border-b pb-4 flex justify-between items-center">
                     <div className="flex-1">
-                      <h3 className="font-medium">{tab.title}</h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium">{tab.title}</h3>
+                        {tripBadge(tab)}
+                      </div>
                       <p className="text-gray-600 text-sm">{tab.description}</p>
                       <div className="mt-2 flex items-center gap-4">
                         <span className="text-sm font-medium flex items-center gap-1 text-green-600">
@@ -308,7 +325,6 @@ export default function TabsDashboard() {
         </div>
       </main>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>

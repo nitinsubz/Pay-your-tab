@@ -48,7 +48,7 @@ export function Navbar() {
         <div className="flex gap-2">
           {pathname === '/tabs' && (
             <Link href="/tabs/new">
-              <Button variant="default">Create New Tab</Button>
+              <Button variant="default">New trip tab</Button>
             </Link>
           )}
           <Link href="/tabs">

@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
+import { createEmptyBill, normalizeTripBill, billUsesTaxTip, sumBillSplits, type TripBill } from '@/lib/tripLedger';
 
 interface Person {
   name: string;
@@ -24,20 +25,35 @@ interface Item {
   splits: ItemSplit[];
 }
 
+function migrateDraftToBills(draftData: Record<string, unknown>): TripBill[] {
+  const raw = draftData.bills;
+  if (Array.isArray(raw) && raw.length > 0) {
+    return (raw as TripBill[]).map(normalizeTripBill);
+  }
+  return [
+    normalizeTripBill({
+      id: 'legacy',
+      label: (typeof draftData.title === 'string' ? draftData.title : '') || 'Receipt',
+      items: (draftData.items as Item[]) || [],
+      subtotal: typeof draftData.subtotal === 'number' ? draftData.subtotal : 0,
+      total: typeof draftData.total === 'number' ? draftData.total : 0
+    })
+  ];
+}
+
 function CreateTabContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 5;
+  const totalSteps = 4;
   
   // Form data
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [venmoUsername, setVenmoUsername] = useState('');
   const [people, setPeople] = useState<Person[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [subtotal, setSubtotal] = useState<number>(0);
-  const [total, setTotal] = useState<number>(0);
+  /** Multiple meals / receipts in one trip — each has its own items + tip/tax. */
+  const [bills, setBills] = useState<TripBill[]>([createEmptyBill()]);
   
   // Form states for adding new entries
   const [newPersonName, setNewPersonName] = useState('');
@@ -49,7 +65,9 @@ function CreateTabContent() {
     customSplits: new Map<string, number>()
   });
   const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
-  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  /** Which bill the item dialog applies to */
+  const [itemTargetBillId, setItemTargetBillId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<{ billId: string; index: number } | null>(null);
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   
@@ -102,9 +120,7 @@ function CreateTabContent() {
               // Use draft venmo if exists, otherwise use profile venmo
               setVenmoUsername(draftData.venmoUsername || userSnap.data()?.venmoUsername || '');
               setPeople((draftData.people || []).map((p: { name: string }) => ({ name: p.name })));
-              setItems(draftData.items || []);
-              setSubtotal(draftData.subtotal || 0);
-              setTotal(draftData.total || 0);
+              setBills(migrateDraftToBills(draftData as Record<string, unknown>));
             }
           }
         }
@@ -130,7 +146,7 @@ function CreateTabContent() {
     const user = auth.currentUser;
     if (!user) return;
 
-    if (!title && !description && !venmoUsername && people.length === 0 && items.length === 0) {
+    if (!title && !description && !venmoUsername && people.length === 0 && bills.every(b => b.items.length === 0)) {
       return;
     }
 
@@ -141,9 +157,7 @@ function CreateTabContent() {
         description,
         venmoUsername,
         people,
-        items,
-        subtotal,
-        total,
+        bills,
         status: 'draft',
         updatedAt: serverTimestamp()
       };
@@ -162,7 +176,7 @@ function CreateTabContent() {
     } catch (error) {
       console.error('Error auto-saving draft:', error);
     }
-  }, [title, description, venmoUsername, people, items, subtotal, total, draftId]);
+  }, [title, description, venmoUsername, people, bills, draftId]);
 
   // Debounced auto-save
   useEffect(() => {
@@ -181,7 +195,7 @@ function CreateTabContent() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [title, description, venmoUsername, people, items, subtotal, total, autoSave, isLoadingDraft]);
+  }, [title, description, venmoUsername, people, bills, autoSave, isLoadingDraft]);
 
   const handleAddPerson = async (personNameOverride?: string) => {
     try {
@@ -280,81 +294,129 @@ function CreateTabContent() {
   };
 
   const handleAddItem = () => {
-    if (newItem.name && newItem.totalAmount > 0 && selectedPeople.length > 0) {
-      const splits = Array.from(newItem.customSplits.entries())
-        .filter(([name]) => selectedPeople.includes(name))
-        .map(([personName, amount]) => ({
-          personName,
-          amount: Number(amount.toFixed(2))
-        }));
+    const billId = editingItem?.billId ?? itemTargetBillId;
+    if (!billId || !newItem.name || newItem.totalAmount <= 0 || selectedPeople.length === 0) return;
 
-      if (editingItemIndex !== null) {
-        const updatedItems = [...items];
-        updatedItems[editingItemIndex] = {
-          name: newItem.name,
-          totalAmount: newItem.totalAmount,
-          splits
-        };
-        setItems(updatedItems);
-        setEditingItemIndex(null);
-      } else {
-        setItems([...items, {
-          name: newItem.name,
-          totalAmount: newItem.totalAmount,
-          splits
-        }]);
-      }
+    const splits = Array.from(newItem.customSplits.entries())
+      .filter(([name]) => selectedPeople.includes(name))
+      .map(([personName, amount]) => ({
+        personName,
+        amount: Number(amount.toFixed(2))
+      }));
 
-      setNewItem({ name: '', totalAmount: 0, customSplits: new Map() });
-      setSelectedPeople([]);
-      setIsAddItemOpen(false);
-    }
+    const entry: Item = {
+      name: newItem.name,
+      totalAmount: newItem.totalAmount,
+      splits
+    };
+
+    setBills((prev) =>
+      prev.map((b) => {
+        if (b.id !== billId) return b;
+        if (editingItem && editingItem.billId === billId) {
+          const next = [...b.items];
+          next[editingItem.index] = entry;
+          return { ...b, items: next };
+        }
+        return { ...b, items: [...b.items, entry] };
+      })
+    );
+
+    setNewItem({ name: '', totalAmount: 0, customSplits: new Map() });
+    setSelectedPeople([]);
+    setEditingItem(null);
+    setItemTargetBillId(null);
+    setIsAddItemOpen(false);
   };
 
-  const handleDeleteItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
+  const handleDeleteItem = (billId: string, index: number) => {
+    setBills((prev) =>
+      prev.map((b) => (b.id === billId ? { ...b, items: b.items.filter((_, i) => i !== index) } : b))
+    );
   };
 
-  const handleEditItem = (index: number) => {
-    const item = items[index];
-    const customSplits = new Map(item.splits.map(split => [split.personName, split.amount]));
+  const openAddItem = (billId: string) => {
+    setItemTargetBillId(billId);
+    setEditingItem(null);
+    setNewItem({ name: '', totalAmount: 0, customSplits: new Map() });
+    setSelectedPeople([]);
+    setIsAddItemOpen(true);
+  };
+
+  const handleEditItem = (billId: string, index: number) => {
+    const bill = bills.find((b) => b.id === billId);
+    if (!bill) return;
+    const item = bill.items[index];
+    const customSplits = new Map(item.splits.map((split) => [split.personName, split.amount]));
     setNewItem({
       name: item.name,
       totalAmount: item.totalAmount,
       customSplits
     });
-    setSelectedPeople(item.splits.map(split => split.personName));
-    setEditingItemIndex(index);
+    setSelectedPeople(item.splits.map((split) => split.personName));
+    setEditingItem({ billId, index });
+    setItemTargetBillId(billId);
     setIsAddItemOpen(true);
   };
 
-  const calculateTipTax = () => {
-    if (subtotal > 0 && total > 0 && total > subtotal) {
-      const multiplier = total / subtotal;
-      
-      // Calculate tip/tax item
-      const personTotals = new Map<string, number>();
-      
-      items.forEach(item => {
-        item.splits.forEach(split => {
-          const currentTotal = personTotals.get(split.personName) || 0;
-          personTotals.set(split.personName, currentTotal + split.amount);
-        });
-      });
+  const calculateTipTaxForBill = (billId: string) => {
+    setBills((prev) =>
+      prev.map((b) => {
+        if (b.id !== billId) return b;
+        if (!billUsesTaxTip(b)) return b;
+        if (b.subtotal <= 0 || b.total <= 0 || b.total <= b.subtotal) return b;
+        const multiplier = b.total / b.subtotal;
+        const personTotals = new Map<string, number>();
+        b.items
+          .filter((item) => item.name !== 'Tip & Tax')
+          .forEach((item) => {
+            item.splits.forEach((split) => {
+              const currentTotal = personTotals.get(split.personName) || 0;
+              personTotals.set(split.personName, currentTotal + split.amount);
+            });
+          });
+        const tipTaxItem: Item = {
+          name: 'Tip & Tax',
+          totalAmount: b.total - b.subtotal,
+          splits: Array.from(personTotals.entries()).map(([name, amount]) => ({
+            personName: name,
+            amount: Number((amount * (multiplier - 1)).toFixed(2))
+          }))
+        };
+        const filteredItems = b.items.filter((item) => item.name !== 'Tip & Tax');
+        return { ...b, items: [...filteredItems, tipTaxItem] };
+      })
+    );
+  };
 
-      const tipTaxItem: Item = {
-        name: 'Tip & Tax',
-        totalAmount: total - subtotal,
-        splits: Array.from(personTotals.entries()).map(([name, amount]) => ({
-          personName: name,
-          amount: Number((amount * (multiplier - 1)).toFixed(2))
-        }))
-      };
+  const addExpenseBill = () => {
+    setBills((prev) => [...prev, createEmptyBill()]);
+  };
 
-      // Remove existing tip/tax item if it exists
-      const filteredItems = items.filter(item => item.name !== 'Tip & Tax');
-      setItems([...filteredItems, tipTaxItem]);
-    }
+  const removeExpenseBill = (billId: string) => {
+    setBills((prev) => (prev.length <= 1 ? prev : prev.filter((b) => b.id !== billId)));
+  };
+
+  const updateBillField = (billId: string, patch: Partial<Pick<TripBill, 'label' | 'subtotal' | 'total' | 'useTaxTip'>>) => {
+    setBills((prev) => prev.map((b) => (b.id === billId ? { ...b, ...patch } : b)));
+  };
+
+  const setBillUseTaxTip = (billId: string, on: boolean) => {
+    setBills((prev) =>
+      prev.map((b) => {
+        if (b.id !== billId) return b;
+        if (!on) {
+          return {
+            ...b,
+            useTaxTip: false,
+            subtotal: 0,
+            total: 0,
+            items: b.items.filter((i) => i.name !== 'Tip & Tax')
+          };
+        }
+        return { ...b, useTaxTip: true };
+      })
+    );
   };
 
   const handleSubmit = async () => {
@@ -368,7 +430,7 @@ function CreateTabContent() {
         description,
         venmoUsername,
         people,
-        items,
+        bills,
         status: 'active',
         updatedAt: serverTimestamp()
       };
@@ -392,6 +454,19 @@ function CreateTabContent() {
     }
   };
 
+  const billsReady = () =>
+    bills.every((b) => {
+      const hasLines =
+        b.label.trim() !== '' && b.items.filter((i) => i.name !== 'Tip & Tax').length > 0;
+      if (!hasLines) return false;
+      if (!billUsesTaxTip(b)) return true;
+      return (
+        b.subtotal > 0 &&
+        b.total > b.subtotal &&
+        b.items.some((i) => i.name === 'Tip & Tax')
+      );
+    });
+
   const canProceedToNextStep = () => {
     switch (currentStep) {
       case 1:
@@ -399,18 +474,13 @@ function CreateTabContent() {
       case 2:
         return people.length > 0;
       case 3:
-        return items.length > 0;
-      case 4:
-        return subtotal > 0 && total > 0 && total > subtotal;
+        return billsReady();
       default:
         return true;
     }
   };
 
   const nextStep = () => {
-    if (currentStep === 4) {
-      calculateTipTax();
-    }
     if (canProceedToNextStep() && currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
@@ -423,7 +493,7 @@ function CreateTabContent() {
   };
 
   const goToStep = (step: number) => {
-    if (step >= 1 && step <= totalSteps) {
+    if (step >= 1 && step <= 4) {
       setCurrentStep(step);
     }
   };
@@ -443,11 +513,10 @@ function CreateTabContent() {
 
   // Step indicator
   const steps = [
-    { number: 1, title: 'Metadata' },
+    { number: 1, title: 'Trip' },
     { number: 2, title: 'People' },
-    { number: 3, title: 'Items' },
-    { number: 4, title: 'Tax & Tip' },
-    { number: 5, title: 'Review' }
+    { number: 3, title: 'Expenses' },
+    { number: 4, title: 'Review' }
   ];
 
   return (
@@ -455,7 +524,7 @@ function CreateTabContent() {
       <Navbar />
       <main className="container mx-auto px-4 py-8 pt-20 max-w-4xl">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Create New Tab</h1>
+          <h1 className="text-3xl font-bold">New trip tab</h1>
           {draftId && (
             <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
               Draft saved automatically
@@ -508,16 +577,19 @@ function CreateTabContent() {
           {/* Step 1: Metadata */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-semibold mb-6">Tab Information</h2>
+              <h2 className="text-2xl font-semibold mb-6">Trip or event</h2>
+              <p className="text-sm text-gray-600 -mt-4 mb-4">
+                One link for the whole trip. You&apos;ll add separate receipts (dinner, lunch, etc.) in the next steps.
+              </p>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tab Title *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    placeholder="e.g., Dinner at Restaurant"
+                    placeholder="e.g., Weekend in Austin"
                     required
                   />
                 </div>
@@ -593,130 +665,171 @@ function CreateTabContent() {
             </div>
           )}
 
-          {/* Step 3: Items */}
+          {/* Step 3: Multiple expenses (receipts) */}
           {currentStep === 3 && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-semibold">Add Items</h2>
-                  <p className="text-sm text-gray-500 mt-1">Note: Do not include tax and tip in item amounts</p>
-                </div>
-                <Button 
-                  onClick={() => setIsAddItemOpen(true)} 
-                  disabled={people.length === 0}
-                >
-                  Add Item
-                </Button>
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-semibold">Add each receipt</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Add each receipt. Turn on tax &amp; tip only for restaurant-style checks; leave it off for gas, groceries, or anything where your line splits are the full amounts.
+                </p>
               </div>
-              {items.filter(item => item.name !== 'Tip & Tax').length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No items added yet. Click &quot;Add Item&quot; to get started.</p>
-              ) : (
-                <ul className="space-y-4">
-                  {items.filter(item => item.name !== 'Tip & Tax').map((item, index) => (
-                    <li key={index} className="p-4 bg-gray-50 rounded-lg">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="font-medium text-lg">{item.name}</div>
-                          <div className="text-indigo-600 font-semibold mt-1">${item.totalAmount.toFixed(2)}</div>
-                          <div className="mt-2 text-sm text-gray-600">
-                            <div className="font-medium mb-1">Split between:</div>
-                            {item.splits.map((split, splitIndex) => (
-                              <div key={splitIndex} className="ml-4">
-                                {split.personName}: ${split.amount.toFixed(2)}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEditItem(index)}
-                            className="text-indigo-600 hover:text-indigo-800 text-sm"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteItem(index)}
-                            className="text-red-600 hover:text-red-800 text-sm"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
 
-          {/* Step 4: Tax & Tip */}
-          {currentStep === 4 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-semibold">Calculate Tax & Tip</h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Subtotal (before tax & tip)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={subtotal || ''}
-                      onChange={(e) => setSubtotal(parseFloat(e.target.value))}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Final Total (with tax & tip)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={total || ''}
-                      onChange={(e) => setTotal(parseFloat(e.target.value))}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                {subtotal > 0 && total > 0 && (
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    {total <= subtotal ? (
-                      <p className="text-red-600 text-sm">Total must be greater than subtotal</p>
-                    ) : (
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-700">
-                          <span className="font-medium">Tax & Tip Amount:</span> ${(total - subtotal).toFixed(2)}
-                        </p>
-                        <p className="text-sm text-gray-700">
-                          <span className="font-medium">Multiplier:</span> {(total / subtotal).toFixed(4)}x ({(total / subtotal - 1) * 100}%)
-                        </p>
-                      </div>
+              {bills.map((bill, billIdx) => (
+                <div
+                  key={bill.id}
+                  className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 shadow-sm"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                        Expense {billIdx + 1}
+                      </label>
+                      <input
+                        type="text"
+                        value={bill.label}
+                        onChange={(e) => updateBillField(bill.id, { label: e.target.value })}
+                        placeholder='e.g. Dinner at Luigi&apos;s'
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium"
+                      />
+                    </div>
+                    {bills.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeExpenseBill(bill.id)}
+                        className="text-sm text-red-600 hover:text-red-800"
+                      >
+                        Remove expense
+                      </button>
                     )}
                   </div>
-                )}
-              </div>
+
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+                    <p className="text-sm text-slate-600">
+                      {billUsesTaxTip(bill)
+                        ? 'Line items (amounts before tax & tip)'
+                        : 'Line items (full amounts — splits should match what each person owes)'}
+                    </p>
+                    <Button type="button" onClick={() => openAddItem(bill.id)} disabled={people.length === 0} size="sm">
+                      Add line item
+                    </Button>
+                  </div>
+
+                  {bill.items.filter((i) => i.name !== 'Tip & Tax').length === 0 ? (
+                    <p className="text-sm text-slate-500 py-4 text-center bg-white rounded-lg border border-dashed border-slate-200">
+                      No line items yet for this expense.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2 mb-4">
+                      {bill.items
+                        .map((item, index) => ({ item, index }))
+                        .filter(({ item }) => item.name !== 'Tip & Tax')
+                        .map(({ item, index }) => (
+                          <li key={`${bill.id}-${index}`} className="p-3 bg-white rounded-lg border border-slate-100 flex justify-between gap-3">
+                            <div>
+                              <div className="font-medium">{item.name}</div>
+                              <div className="text-indigo-600 text-sm font-semibold">${item.totalAmount.toFixed(2)}</div>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleEditItem(bill.id, index)}
+                                className="text-indigo-600 text-sm"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(bill.id, index)}
+                                className="text-red-600 text-sm"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 mb-3">
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        checked={billUsesTaxTip(bill)}
+                        onChange={(e) => setBillUseTaxTip(bill.id, e.target.checked)}
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-slate-900">Separate tax &amp; tip on this receipt</span>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          Use for restaurants: enter subtotal and the full receipt total, then apply tip/tax to splits. Skip for gas, groceries, or when line items already include everything.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+
+                  {billUsesTaxTip(bill) && (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Subtotal (before tax & tip)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={bill.subtotal || ''}
+                            onChange={(e) => updateBillField(bill.id, { subtotal: parseFloat(e.target.value) || 0 })}
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Receipt total (with tax & tip)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={bill.total || ''}
+                            onChange={(e) => updateBillField(bill.id, { total: parseFloat(e.target.value) || 0 })}
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                      {bill.subtotal > 0 && bill.total > bill.subtotal && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="w-full sm:w-auto"
+                          onClick={() => calculateTipTaxForBill(bill.id)}
+                        >
+                          Apply tip &amp; tax to splits for this expense
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+
+              <Button type="button" variant="outline" className="w-full border-dashed border-2 py-6" onClick={addExpenseBill}>
+                + Add another expense
+              </Button>
             </div>
           )}
 
-          {/* Step 5: Review */}
-          {currentStep === 5 && (
+          {/* Step 4: Review */}
+          {currentStep === 4 && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-semibold">Review & Submit</h2>
+              <h2 className="text-2xl font-semibold">Review & submit</h2>
               
-              {/* Metadata Review */}
               <div className="border-b pb-4">
-                <h3 className="font-semibold text-lg mb-2">Tab Information</h3>
+                <h3 className="font-semibold text-lg mb-2">Trip</h3>
                 <div className="space-y-1 text-sm">
-                  <p><span className="font-medium">Title:</span> {title}</p>
+                  <p><span className="font-medium">Name:</span> {title}</p>
                   {description && <p><span className="font-medium">Description:</span> {description}</p>}
                   {venmoUsername && <p><span className="font-medium">Venmo:</span> {venmoUsername}</p>}
                   {!venmoUsername && (
                     <p className="text-yellow-600">
                       <span className="font-medium">Venmo:</span> Not set. Please set it in{' '}
-                      <button
-                        onClick={() => router.push('/settings')}
-                        className="underline"
-                      >
+                      <button type="button" onClick={() => router.push('/settings')} className="underline">
                         Settings
                       </button>
                     </p>
@@ -727,7 +840,6 @@ function CreateTabContent() {
                 </Button>
               </div>
 
-              {/* People Review */}
               <div className="border-b pb-4">
                 <h3 className="font-semibold text-lg mb-2">People ({people.length})</h3>
                 <div className="flex flex-wrap gap-2">
@@ -742,108 +854,80 @@ function CreateTabContent() {
                 </Button>
               </div>
 
-              {/* Items Review */}
               <div className="border-b pb-4">
-                <h3 className="font-semibold text-lg mb-2">Items ({items.filter(item => item.name !== 'Tip & Tax').length})</h3>
-                <div className="space-y-2">
-                  {items.map((item, index) => (
-                    <div key={index} className="text-sm">
-                      <span className="font-medium">{item.name}:</span> ${item.totalAmount.toFixed(2)}
-                    </div>
+                <h3 className="font-semibold text-lg mb-2">Expenses ({bills.length})</h3>
+                <ul className="space-y-2 text-sm">
+                  {bills.map((b) => (
+                    <li key={b.id} className="flex justify-between gap-2">
+                      <span>{b.label || 'Untitled'}</span>
+                      <span className="text-slate-600">
+                        {billUsesTaxTip(b) && b.total > 0
+                          ? `$${b.total.toFixed(2)} (receipt)`
+                          : `$${sumBillSplits(b).toFixed(2)} (splits)`}
+                      </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => goToStep(3)}>
                   Edit
                 </Button>
               </div>
 
-              {/* Tax & Tip Review */}
-              {subtotal > 0 && total > 0 && (
-                <div className="border-b pb-4">
-                  <h3 className="font-semibold text-lg mb-2">Tax & Tip</h3>
-                  <div className="text-sm space-y-1">
-                    <p><span className="font-medium">Subtotal:</span> ${subtotal.toFixed(2)}</p>
-                    <p><span className="font-medium">Total:</span> ${total.toFixed(2)}</p>
-                    <p><span className="font-medium">Tax & Tip:</span> ${(total - subtotal).toFixed(2)}</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="mt-2" onClick={() => goToStep(4)}>
-                    Edit
-                  </Button>
-                </div>
-              )}
-
-              {/* Summary */}
               <div className="bg-indigo-50 p-4 rounded-lg">
                 <h3 className="font-semibold text-lg mb-2">Summary</h3>
                 <div className="space-y-1 text-sm">
-                  <p><span className="font-medium">Total People:</span> {people.length}</p>
-                  <p><span className="font-medium">Total Items:</span> {items.filter(item => item.name !== 'Tip & Tax').length}</p>
-                  {total > 0 && <p><span className="font-medium">Final Total:</span> ${total.toFixed(2)}</p>}
+                  <p><span className="font-medium">Receipts:</span> {bills.length}</p>
+                  <p>
+                    <span className="font-medium">Trip total (from splits):</span>{' '}
+                    $
+                    {bills
+                      .reduce(
+                        (sum, b) =>
+                          sum +
+                          b.items.reduce((s, it) => s + it.splits.reduce((a, sp) => a + sp.amount, 0), 0),
+                        0
+                      )
+                      .toFixed(2)}
+                  </p>
                 </div>
               </div>
 
-              {/* Validation Check */}
               {(() => {
-                // Calculate total from all splits
-                const personTotals = new Map<string, number>();
-                items.forEach(item => {
-                  item.splits.forEach(split => {
-                    const currentTotal = personTotals.get(split.personName) || 0;
-                    personTotals.set(split.personName, currentTotal + split.amount);
-                  });
-                });
-                
-                const calculatedTotal = Array.from(personTotals.values()).reduce((sum, amount) => sum + amount, 0);
-                const difference = Math.abs(calculatedTotal - total);
-                const tolerance = 0.01; // Allow 1 cent difference for rounding
-                const isValid = total > 0 && difference <= tolerance;
-                
+                const calculatedTotal = bills.reduce((s, b) => s + sumBillSplits(b), 0);
+                const expectedTotal = bills.reduce(
+                  (s, b) =>
+                    s + (billUsesTaxTip(b) ? (b.total > 0 ? b.total : 0) : sumBillSplits(b)),
+                  0
+                );
+                const difference = Math.abs(calculatedTotal - expectedTotal);
+                const tolerance = 0.05;
+                const isValid = expectedTotal > 0 && difference <= tolerance;
+
                 return (
-                  <div className={`p-4 rounded-lg border-2 ${
-                    isValid 
-                      ? 'bg-green-50 border-green-200' 
-                      : 'bg-red-50 border-red-200'
-                  }`}>
+                  <div
+                    className={`p-4 rounded-lg border-2 ${
+                      isValid ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                    }`}
+                  >
                     <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
                       {isValid ? (
-                        <>
-                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-green-800">Amounts Match ✓</span>
-                        </>
+                        <span className="text-green-800">Totals line up ✓</span>
                       ) : (
-                        <>
-                          <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-red-800">Amount Mismatch ⚠️</span>
-                        </>
+                        <span className="text-amber-900">Check amounts</span>
                       )}
                     </h3>
                     <div className="space-y-1 text-sm">
-                      <p className={isValid ? 'text-green-700' : 'text-red-700'}>
-                        <span className="font-medium">Expected Total:</span> ${total.toFixed(2)}
+                      <p className={isValid ? 'text-green-700' : 'text-amber-900'}>
+                        <span className="font-medium">Expected (receipt totals + simple splits):</span> $
+                        {expectedTotal.toFixed(2)}
                       </p>
-                      <p className={isValid ? 'text-green-700' : 'text-red-700'}>
-                        <span className="font-medium">Calculated from Splits:</span> ${calculatedTotal.toFixed(2)}
+                      <p className={isValid ? 'text-green-700' : 'text-amber-900'}>
+                        <span className="font-medium">From all line-item splits:</span> ${calculatedTotal.toFixed(2)}
                       </p>
                       {!isValid && (
-                        <p className="text-red-700 font-medium">
-                          Difference: ${difference.toFixed(2)} - Please adjust item splits to match the total
+                        <p className="text-amber-900">
+                          Difference ${difference.toFixed(2)} — adjust splits or receipt totals (rounding within a few cents is ok).
                         </p>
-                      )}
-                      {isValid && (
-                        <div className="mt-2 pt-2 border-t border-green-200">
-                          <p className="text-sm text-green-700 font-medium">Breakdown by Person:</p>
-                          <div className="mt-1 space-y-1">
-                            {Array.from(personTotals.entries()).map(([name, amount]) => (
-                              <p key={name} className="text-xs text-green-600 ml-4">
-                                {name}: ${amount.toFixed(2)}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
                       )}
                     </div>
                   </div>
@@ -871,9 +955,9 @@ function CreateTabContent() {
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={!title || !venmoUsername || people.length === 0 || items.filter(item => item.name !== 'Tip & Tax').length === 0}
+                disabled={!title || !venmoUsername || people.length === 0 || !billsReady()}
               >
-                {!venmoUsername ? 'Set Venmo Username First' : 'Create Tab'}
+                {!venmoUsername ? 'Set Venmo Username First' : 'Create trip tab'}
               </Button>
             )}
           </div>
@@ -993,9 +1077,9 @@ function CreateTabContent() {
         <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{editingItemIndex !== null ? 'Edit Item' : 'Add Item'}</DialogTitle>
+              <DialogTitle>{editingItem !== null ? 'Edit line item' : 'Add line item'}</DialogTitle>
               <DialogDescription>
-                {editingItemIndex !== null ? 'Edit existing item details.' : 'Add a new item to the tab. Do not include tax and tip.'}
+                {editingItem !== null ? 'Edit this line item.' : 'Add a line to this expense. Do not include tax and tip in the amount.'}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -1078,7 +1162,8 @@ function CreateTabContent() {
                 setIsAddItemOpen(false);
                 setNewItem({ name: '', totalAmount: 0, customSplits: new Map() });
                 setSelectedPeople([]);
-                setEditingItemIndex(null);
+                setEditingItem(null);
+                setItemTargetBillId(null);
               }}>
                 Cancel
               </Button>
@@ -1086,7 +1171,7 @@ function CreateTabContent() {
                 onClick={handleAddItem}
                 disabled={!newItem.name || !newItem.totalAmount || selectedPeople.length === 0}
               >
-                {editingItemIndex !== null ? 'Update Item' : 'Add Item'}
+                {editingItem !== null ? 'Update line item' : 'Add line item'}
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -5,6 +5,15 @@ import { ExpenseDisplay } from '@/components/ExpenseDisplay'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/firebaseConfig'
 import { useParams } from 'next/navigation'
+import {
+  aggregateExpensesFromBills,
+  getBillsFromDocument,
+  grandTotalFromBills,
+  billCountLabel,
+  billUsesTaxTip,
+  type TripBill,
+  type LedgerItem
+} from '@/lib/tripLedger'
 
 interface Person {
   name: string;
@@ -12,20 +21,15 @@ interface Person {
   paid?: boolean;
 }
 
-interface Item {
-  name: string;
-  splits: {
-    amount: number;
-    personName: string;
-  }[];
-  totalAmount: number;
-}
-
 interface TabDocument {
   people: Person[];
   title: string;
   description: string;
-  items: Item[];
+  userId?: string;
+  bills?: TripBill[];
+  items?: LedgerItem[];
+  subtotal?: number;
+  total?: number;
 }
 
 export default function Home() {
@@ -40,7 +44,7 @@ export default function Home() {
   const [expensesData, setExpensesData] = useState<Record<string, Record<string, number>>>({});
   const [paid, setPaid] = useState(false);
   const [paidStatusCache, setPaidStatusCache] = useState<Record<string, boolean>>({});
-
+  const [bills, setBills] = useState<TripBill[]>([]);
   useEffect(() => {
     const urlId = params.id as string
     const hashName = window.location.hash.slice(1)
@@ -49,41 +53,30 @@ export default function Home() {
       try {
         const tabDocRef = doc(db, 'tabs', urlId);
         const tabDocSnap = await getDoc(tabDocRef);
-        const tabData = tabDocSnap.data() as TabDocument;
+        const tabData = tabDocSnap.data() as TabDocument | undefined;
 
-        if (tabDocSnap.exists()) {
+        if (tabDocSnap.exists() && tabData) {
           setDescription(tabData.description || '');
           setTitle(tabData.title);
           setTabExists(true);
 
-          // Calculate expenses per person
-          const expensesMap: Record<string, Record<string, number>> = {};
-          
-          // Initialize expenses map for each person
-          tabData.people.forEach((person: Person) => {
-            expensesMap[person.name] = {};
-          });
+          const billList = getBillsFromDocument(tabData);
+          setBills(billList);
 
-          // Calculate expenses from items
-          tabData.items.forEach((item: Item) => {
-            item.splits.forEach((split) => {
-              if (expensesMap[split.personName]) {
-                expensesMap[split.personName][item.name] = split.amount;
-              }
-            });
-          });
+          const expensesMap = aggregateExpensesFromBills(
+            billList,
+            tabData.people.map((p: Person) => p.name)
+          );
 
           setExpensesData(expensesMap);
           setAllUsers(tabData.people.map((p: Person) => p.name));
 
-          // Initialize paid status cache
           const initialPaidStatus: Record<string, boolean> = {};
           tabData.people.forEach((person: Person) => {
             initialPaidStatus[person.name] = person.paid || false;
           });
           setPaidStatusCache(initialPaidStatus);
 
-          // Set expenses based on hash
           if (hashName) {
             const matchingHashName = tabData.people.find(
               (p: Person) => p.name.toLowerCase() === hashName.toLowerCase()
@@ -95,25 +88,25 @@ export default function Home() {
           }
         } else {
           setTabExists(false);
+          setBills([]);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
         setTabExists(false);
+        setBills([]);
       }
       setLoading(false);
     };
-    console.log(paid);
     fetchTabAndExpenses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  // Modify the hash change effect to use expensesData from state
   useEffect(() => {
     const handleHashChange = () => {
       const hashName = window.location.hash.slice(1)
-      if (expensesData) {  // Add check for expensesData
+      if (expensesData) {
         const matchingName = Object.keys(expensesData).find(
-          name => name.toLowerCase() === hashName.toLowerCase()
+          n => n.toLowerCase() === hashName.toLowerCase()
         )
         if (matchingName) {
           setName(matchingName)
@@ -125,7 +118,7 @@ export default function Home() {
     
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [expensesData])  // Add expensesData as dependency
+  }, [expensesData])
   
   useEffect(() => {
     if (name && expensesData) {
@@ -137,6 +130,9 @@ export default function Home() {
       setExpenses(null)
     }
   }, [name, expensesData, paidStatusCache])
+
+  const grandTotal = grandTotalFromBills(bills);
+  const isTrip = bills.length > 1;
 
   const getComponent = () => {
     if (loading) {
@@ -156,13 +152,62 @@ export default function Home() {
 
     return (
       <>
-        <h1 className="text-4xl font-bold mb-2 text-center">{title}</h1>
-        <div>
-          <p className="text-sm italic text-gray-600 mb-8 text-center">
-            {description}
+        <div className="w-full max-w-lg mx-auto text-center mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">
+            {isTrip ? 'Shared trip' : 'Shared tab'}
           </p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">{title}</h1>
+          {description ? (
+            <p className="text-sm text-gray-600 mt-2">{description}</p>
+          ) : null}
         </div>
+
+        {bills.length > 0 && (
+          <div className="w-full max-w-xl mx-auto mb-8">
+            <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-800">Expense summary</h2>
+                  <p className="text-xs text-slate-500">{billCountLabel(bills)} · ${grandTotal.toFixed(2)} total</p>
+                </div>
+              </div>
+              <ul className="divide-y divide-slate-100">
+                {bills.map((bill) => {
+                  const billSum = bill.items.reduce(
+                    (s, it) => s + it.splits.reduce((a, sp) => a + sp.amount, 0),
+                    0
+                  );
+                  return (
+                    <li key={bill.id} className="px-4 py-3 flex justify-between items-start gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-900 truncate">{bill.label || 'Expense'}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {bill.items.filter((i) => i.name !== 'Tip & Tax').length} line items
+                          {billUsesTaxTip(bill) && bill.total > 0 && (
+                            <span> · receipt ${bill.total.toFixed(2)}</span>
+                          )}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-slate-800 shrink-0">
+                        ${billSum.toFixed(2)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="px-4 py-3 bg-slate-50/80 border-t border-slate-100 flex justify-between items-center">
+                <span className="text-sm font-medium text-slate-700">Trip total (splits)</span>
+                <span className="text-lg font-bold text-indigo-700">${grandTotal.toFixed(2)}</span>
+              </div>
+            </div>
+            <p className="text-center text-xs text-slate-500 mt-3">
+              Pick your name below to see what you owe across {isTrip ? 'all of these expenses' : 'this tab'} — one Venmo total.
+            </p>
+          </div>
+        )}
+
         <div className="mb-8 w-full max-w-md">
+          <label className="block text-sm font-medium text-gray-700 mb-2 text-center">Who are you?</label>
           <select
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -192,16 +237,15 @@ export default function Home() {
           />
         )}
         {name && !expenses && <p className="text-red-500">No expenses found for {name}</p>}
-        {!name && <p className="text-gray-500">Please select a name to view expenses</p>}
+        {!name && <p className="text-gray-500 text-center">Select your name to see your share and pay with Venmo.</p>}
       </>
     )
   };
 
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-12">
+    <main className="flex min-h-screen flex-col items-center justify-center p-6 sm:p-12">
       {getComponent()}
     </main>
   )
 }
-
