@@ -190,7 +190,7 @@ export default function Home() {
             <div className="grid md:grid-cols-3 gap-8 relative">
               {/* Step 1 */}
               <div className="relative">
-                <div className="absolute -left-4 top-12 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-lg hidden md:flex">
+                <div className="absolute right-4 top-4 z-10 w-8 h-8 rounded-full bg-white/20 border border-white/35 text-white font-bold text-sm hidden md:flex items-center justify-center shadow-sm">
                   1
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
@@ -208,7 +208,7 @@ export default function Home() {
 
               {/* Step 2 */}
               <div className="relative">
-                <div className="absolute -left-4 top-12 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-lg hidden md:flex">
+                <div className="absolute right-4 top-4 z-10 w-8 h-8 rounded-full bg-white/20 border border-white/35 text-white font-bold text-sm hidden md:flex items-center justify-center shadow-sm">
                   2
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
@@ -226,7 +226,7 @@ export default function Home() {
 
               {/* Step 3 */}
               <div className="relative">
-                <div className="absolute -left-4 top-12 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-lg hidden md:flex">
+                <div className="absolute right-4 top-4 z-10 w-8 h-8 rounded-full bg-white/20 border border-white/35 text-white font-bold text-sm hidden md:flex items-center justify-center shadow-sm">
                   3
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
@@ -249,7 +249,17 @@ export default function Home() {
         <footer className="py-12 px-4 bg-slate-900 text-slate-400">
           <div className="max-w-7xl mx-auto text-center">
             <p className="text-lg font-semibold text-white mb-2">TabWrapped</p>
-            <p className="text-sm">The easiest way to split tabs and get paid. Made with ❤️ for broke friends everywhere.</p>
+            <p className="text-sm">
+              made with 💖 by{' '}
+              <a
+                href="https://www.linkedin.com/in/nitinsub/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-white transition-colors"
+              >
+                nitin subramanian
+              </a>
+            </p>
           </div>
         </footer>
       </main>
