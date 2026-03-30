@@ -1,22 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-
-function metadataBaseUrl(): URL {
-  const site = process.env.NEXT_PUBLIC_SITE_URL;
-  if (site) {
-    try {
-      return new URL(site.endsWith("/") ? site.slice(0, -1) : site);
-    } catch {
-      /* fall through */
-    }
-  }
-  if (process.env.VERCEL_URL) {
-    const host = process.env.VERCEL_URL.replace(/^https?:\/\//, "");
-    return new URL(`https://${host}`);
-  }
-  return new URL("http://localhost:3000");
-}
+import { getSiteOrigin } from "@/lib/site";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -29,8 +14,15 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+const rootOgImage = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "TabWrapped",
+} as const;
+
 export const metadata: Metadata = {
-  metadataBase: metadataBaseUrl(),
+  metadataBase: getSiteOrigin(),
   title: "TabWrapped",
   description: "It's like spotify wrapped, except its the tab your broke ass ran up and now you're even more broke, wrapped.",
   icons: {
@@ -40,9 +32,11 @@ export const metadata: Metadata = {
   openGraph: {
     siteName: "TabWrapped",
     type: "website",
+    images: [rootOgImage],
   },
   twitter: {
     card: "summary_large_image",
+    images: [new URL(rootOgImage.url, getSiteOrigin()).toString()],
   },
 };
 

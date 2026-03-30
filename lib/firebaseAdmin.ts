@@ -4,6 +4,25 @@ import { getBillsFromDocument } from '@/lib/tripLedger';
 
 let cachedApp: App | null = null;
 
+type ServiceAccountLike = {
+  project_id?: string;
+  client_email?: string;
+  private_key?: string;
+};
+
+function initFromServiceAccount(raw: ServiceAccountLike): App | null {
+  if (!raw.project_id || !raw.client_email || !raw.private_key) {
+    return null;
+  }
+  return initializeApp({
+    credential: cert({
+      projectId: raw.project_id,
+      clientEmail: raw.client_email,
+      privateKey: raw.private_key.replace(/\\n/g, '\n'),
+    }),
+  });
+}
+
 function getAdminApp(): App | null {
   if (cachedApp) return cachedApp;
   const existing = getApps()[0];
@@ -11,6 +30,22 @@ function getAdminApp(): App | null {
     cachedApp = existing;
     return cachedApp;
   }
+
+  /** One JSON blob from Firebase → Project settings → Service accounts (easiest on Vercel). */
+  const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (json) {
+    try {
+      const raw = JSON.parse(json) as ServiceAccountLike;
+      const app = initFromServiceAccount(raw);
+      if (app) {
+        cachedApp = app;
+        return cachedApp;
+      }
+    } catch {
+      return null;
+    }
+  }
+
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   let privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
   /** Defaults to this repo’s Firebase project; override if you fork. */

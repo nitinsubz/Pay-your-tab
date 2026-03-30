@@ -1,25 +1,14 @@
 import type { Metadata } from 'next';
 import { getTabShareMetadata } from '@/lib/firebaseAdmin';
+import { getSiteOrigin } from '@/lib/site';
 
-const defaultOgDescription =
-  "It's like spotify wrapped, except its the tab your broke ass ran up and now you're even more broke, wrapped.";
-
-function siteOrigin(): URL | undefined {
-  const raw =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL.replace(/^https?:\/\//, '')}` : '');
-  if (!raw) return undefined;
-  try {
-    return new URL(raw.endsWith('/') ? raw.slice(0, -1) : raw);
-  } catch {
-    return undefined;
-  }
-}
+/** Short line — iMessage often hides long og:description and shows the hostname instead. */
+const shortFallbackOg =
+  'Split checks, share trips, and pay your share on TabWrapped.';
 
 const ogImageDims = { width: 1200, height: 630, alt: 'TabWrapped' as const };
 
-function ogImageMeta(base: URL | undefined) {
-  if (!base) return undefined;
+function ogImageMeta(base: URL) {
   return [
     {
       url: new URL('/opengraph-image', base).toString(),
@@ -34,32 +23,31 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const base = siteOrigin();
+  const base = getSiteOrigin();
   const tab = await getTabShareMetadata(id);
-
   const ogImages = ogImageMeta(base);
+  const pageUrl = new URL(`/tab/${id}`, base).toString();
 
   if (!tab) {
     return {
       title: 'TabWrapped',
-      description: defaultOgDescription,
+      description: shortFallbackOg,
       openGraph: {
         title: 'TabWrapped',
-        description: defaultOgDescription,
+        description: shortFallbackOg,
         type: 'website',
-        ...(base ? { url: new URL(`/tab/${id}`, base).toString() } : {}),
-        ...(ogImages ? { images: ogImages } : {}),
+        url: pageUrl,
+        images: ogImages,
       },
       twitter: {
         card: 'summary_large_image',
         title: 'TabWrapped',
-        description: defaultOgDescription,
-        ...(ogImages ? { images: ogImages.map((i) => i.url) } : {}),
+        description: shortFallbackOg,
+        images: ogImages.map((i) => i.url),
       },
     };
   }
 
-  /** Same hierarchy as the page: main title, then description or the eyebrow line. */
   const subheading = tab.description || tab.eyebrow;
 
   return {
@@ -69,14 +57,14 @@ export async function generateMetadata({
       title: tab.title,
       description: subheading,
       type: 'website',
-      ...(base ? { url: new URL(`/tab/${id}`, base).toString() } : {}),
-      ...(ogImages ? { images: ogImages } : {}),
+      url: pageUrl,
+      images: ogImages,
     },
     twitter: {
       card: 'summary_large_image',
       title: tab.title,
       description: subheading,
-      ...(ogImages ? { images: ogImages.map((i) => i.url) } : {}),
+      images: ogImages.map((i) => i.url),
     },
   };
 }
