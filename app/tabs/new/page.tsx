@@ -621,6 +621,24 @@ function CreateTabContent() {
     );
   };
 
+  const handleDuplicateItem = (billId: string, index: number) => {
+    setBills((prev) =>
+      prev.map((b) => {
+        if (b.id !== billId) return b;
+        if (index < 0 || index >= b.items.length) return b;
+        const source = b.items[index];
+        const duplicate: Item = {
+          ...source,
+          name: source.name?.trim() ? `${source.name} (copy)` : 'Line item (copy)',
+          splits: source.splits.map((s) => ({ ...s })),
+        };
+        const next = [...b.items];
+        next.splice(index + 1, 0, duplicate);
+        return { ...b, items: next };
+      })
+    );
+  };
+
   const parseLineDragIndex = (billId: string, dragId: string): number => {
     const prefix = `${billId}-line-`;
     if (!dragId.startsWith(prefix)) return -1;
@@ -1168,6 +1186,13 @@ function CreateTabContent() {
                                 className="text-indigo-600 text-sm"
                               >
                                 Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateItem(bill.id, index)}
+                                className="text-slate-600 text-sm"
+                              >
+                                Duplicate
                               </button>
                               <button
                                 type="button"
