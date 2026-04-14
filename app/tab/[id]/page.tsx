@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ExpenseDisplay } from '@/components/ExpenseDisplay'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, onSnapshot } from 'firebase/firestore'
 import { db, auth } from '@/firebaseConfig'
 import { onAuthStateChanged } from 'firebase/auth'
 import { useParams } from 'next/navigation'
@@ -116,6 +116,21 @@ export default function Home() {
     fetchTabAndExpenses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  useEffect(() => {
+    const urlId = params.id as string;
+    if (!tabExists || !currentUserId || !tabOwnerId || currentUserId !== tabOwnerId) return;
+    const unsub = onSnapshot(doc(db, 'tabs', urlId), (snap) => {
+      if (!snap.exists()) return;
+      const tabData = snap.data() as TabDocument;
+      const next: Record<string, boolean> = {};
+      (tabData.people || []).forEach((person: Person) => {
+        next[person.name] = person.paid || false;
+      });
+      setPaidStatusCache(next);
+    });
+    return () => unsub();
+  }, [params.id, tabExists, currentUserId, tabOwnerId]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -237,7 +252,7 @@ export default function Home() {
         )}
 
         {currentUserId && tabOwnerId && currentUserId === tabOwnerId && (
-          <div className="w-full max-w-xl mx-auto flex justify-center mb-6">
+          <div className="w-full max-w-xl mx-auto flex flex-wrap justify-center gap-3 mb-6">
             <Link
               href={`/tabs/new?editId=${params.id as string}`}
               className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
@@ -247,6 +262,17 @@ export default function Home() {
               </svg>
               Edit trip tab
             </Link>
+            {allUsers.some((u) => !paidStatusCache[u]) && (
+              <Link
+                href={`/tab/${params.id as string}/payments`}
+                className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-900 shadow-sm hover:bg-indigo-100"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                Who hasn&apos;t paid
+              </Link>
+            )}
           </div>
         )}
 
