@@ -25,6 +25,7 @@ interface Item {
   name: string;
   totalAmount: number;
   splits: ItemSplit[];
+  paidBy?: string;
 }
 
 /** Firestore rejects `undefined` values — strip nested objects (e.g. people.paid, bill.useTaxTip). */
@@ -77,10 +78,11 @@ function CreateTabContent() {
   const [newPersonName, setNewPersonName] = useState('');
   const [savedPeople, setSavedPeople] = useState<string[]>([]); // People saved in user profile
   const [showPersonSuggestions, setShowPersonSuggestions] = useState(false);
-  const [newItem, setNewItem] = useState({ 
-    name: '', 
+  const [newItem, setNewItem] = useState({
+    name: '',
     totalAmount: 0,
-    customSplits: new Map<string, number>()
+    customSplits: new Map<string, number>(),
+    paidBy: '',
   });
   const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
   /** Which bill the item dialog applies to */
@@ -371,7 +373,8 @@ function CreateTabContent() {
     const entry: Item = {
       name: newItem.name,
       totalAmount: newItem.totalAmount,
-      splits
+      splits,
+      ...(newItem.paidBy.trim() && newItem.totalAmount > 0 ? { paidBy: newItem.paidBy.trim() } : {}),
     };
 
     setBills((prev) =>
@@ -386,7 +389,7 @@ function CreateTabContent() {
       })
     );
 
-    setNewItem({ name: '', totalAmount: 0, customSplits: new Map() });
+    setNewItem({ name: '', totalAmount: 0, customSplits: new Map(), paidBy: '' });
     setSelectedPeople([]);
     setEditingItem(null);
     setItemTargetBillId(null);
@@ -402,7 +405,7 @@ function CreateTabContent() {
   const openAddItem = (billId: string) => {
     setItemTargetBillId(billId);
     setEditingItem(null);
-    setNewItem({ name: '', totalAmount: 0, customSplits: new Map() });
+    setNewItem({ name: '', totalAmount: 0, customSplits: new Map(), paidBy: '' });
     setSelectedPeople([]);
     setIsAddItemOpen(true);
   };
@@ -415,7 +418,8 @@ function CreateTabContent() {
     setNewItem({
       name: item.name,
       totalAmount: item.totalAmount,
-      customSplits
+      customSplits,
+      paidBy: item.paidBy ?? '',
     });
     setSelectedPeople(item.splits.map((split) => split.personName));
     setEditingItem({ billId, index });
@@ -445,7 +449,8 @@ function CreateTabContent() {
           splits: Array.from(personTotals.entries()).map(([name, amount]) => ({
             personName: name,
             amount: Number((amount * (multiplier - 1)).toFixed(2))
-          }))
+          })),
+          ...(b.paidBy?.trim() ? { paidBy: b.paidBy.trim() } : {}),
         };
         const filteredItems = b.items.filter((item) => item.name !== 'Tip & Tax');
         return { ...b, items: [...filteredItems, tipTaxItem] };
@@ -461,7 +466,10 @@ function CreateTabContent() {
     setBills((prev) => (prev.length <= 1 ? prev : prev.filter((b) => b.id !== billId)));
   };
 
-  const updateBillField = (billId: string, patch: Partial<Pick<TripBill, 'label' | 'subtotal' | 'total' | 'useTaxTip'>>) => {
+  const updateBillField = (
+    billId: string,
+    patch: Partial<Pick<TripBill, 'label' | 'subtotal' | 'total' | 'useTaxTip' | 'paidBy'>>
+  ) => {
     setBills((prev) => prev.map((b) => (b.id === billId ? { ...b, ...patch } : b)));
   };
 
@@ -795,6 +803,33 @@ function CreateTabContent() {
                     )}
                   </div>
 
+                  {people.length > 0 && (
+                    <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/80 p-4">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        Entire expense paid by (optional)
+                      </label>
+                      <p className="text-xs text-slate-600 mb-2">
+                        Pick one person if they covered this whole receipt — it applies to every line item and to tax
+                        &amp; tip when you apply it. Set &quot;Paid by&quot; on a single line only when that line is
+                        different.
+                      </p>
+                      <select
+                        value={bill.paidBy ?? ''}
+                        onChange={(e) =>
+                          updateBillField(bill.id, { paidBy: e.target.value ? e.target.value : undefined })
+                        }
+                        className="w-full max-w-md rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="">— Split only (no default payer) —</option>
+                        {people.map((p) => (
+                          <option key={p.name} value={p.name}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
                     <p className="text-sm text-slate-600">
                       {billUsesTaxTip(bill)
@@ -819,6 +854,12 @@ function CreateTabContent() {
                           <li key={`${bill.id}-${index}`} className="p-3 bg-white rounded-lg border border-slate-100 flex justify-between gap-3">
                             <div>
                               <div className="font-medium">{item.name}</div>
+                              {(item.paidBy || bill.paidBy) && (
+                                <div className="text-xs text-slate-500 mt-0.5">
+                                  Paid by {item.paidBy || bill.paidBy}
+                                  {item.paidBy ? ' (this line)' : ' (whole expense)'}
+                                </div>
+                              )}
                               <div
                                 className={`text-sm font-semibold ${
                                   item.totalAmount < 0 ? 'text-blue-600' : 'text-indigo-600'
@@ -1180,7 +1221,18 @@ function CreateTabContent() {
         </Dialog>
 
         {/* Add Item Dialog */}
-        <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
+        <Dialog
+          open={isAddItemOpen}
+          onOpenChange={(open) => {
+            setIsAddItemOpen(open);
+            if (!open) {
+              setNewItem({ name: '', totalAmount: 0, customSplits: new Map(), paidBy: '' });
+              setSelectedPeople([]);
+              setEditingItem(null);
+              setItemTargetBillId(null);
+            }
+          }}
+        >
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingItem !== null ? 'Edit line item' : 'Add line item'}</DialogTitle>
@@ -1228,6 +1280,26 @@ function CreateTabContent() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Paid by (optional)</label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Overrides &quot;Entire expense paid by&quot; for this line only. Leave empty to use the expense default.
+                  The payer gets credited for the full line amount; everyone else still owes their split.
+                </p>
+                <select
+                  value={newItem.paidBy}
+                  disabled={newItem.totalAmount < 0}
+                  onChange={(e) => setNewItem({ ...newItem, paidBy: e.target.value })}
+                  className="w-full rounded-md border-gray-300 shadow-sm text-sm disabled:opacity-50"
+                >
+                  <option value="">— Split only (no payer credit) —</option>
+                  {people.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Split Between</label>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {people.map((person, index) => {
@@ -1271,7 +1343,7 @@ function CreateTabContent() {
             <DialogFooter>
               <Button variant="outline" onClick={() => {
                 setIsAddItemOpen(false);
-                setNewItem({ name: '', totalAmount: 0, customSplits: new Map() });
+                setNewItem({ name: '', totalAmount: 0, customSplits: new Map(), paidBy: '' });
                 setSelectedPeople([]);
                 setEditingItem(null);
                 setItemTargetBillId(null);

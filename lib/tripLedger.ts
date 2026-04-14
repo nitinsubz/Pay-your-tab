@@ -12,6 +12,8 @@ export interface LedgerItem {
   name: string;
   totalAmount: number;
   splits: ItemSplit[];
+  /** Who fronted the cash/card for this line. Their balance uses (share − line total) so others’ shares net against them. */
+  paidBy?: string;
 }
 
 export interface TripBill {
@@ -22,6 +24,11 @@ export interface TripBill {
   total: number;
   /** When true, show subtotal/receipt total and apply tip & tax. When false, line-item splits are final (gas, groceries, etc.). */
   useTaxTip?: boolean;
+  /**
+   * Default “fronted the cash” for this whole expense. Applies to every line (and the Tip & Tax line)
+   * unless a line sets its own `paidBy`.
+   */
+  paidBy?: string;
 }
 
 export interface TabLike {
@@ -88,11 +95,25 @@ export function aggregateExpensesFromBills(
   bills.forEach((bill) => {
     const prefix = (bill.label || 'Expense').trim() || 'Expense';
     bill.items.forEach((item) => {
+      const paidByRaw = (item.paidBy?.trim() || bill.paidBy?.trim() || '').trim();
+      const applyPayerCredit = paidByRaw && item.totalAmount > 0;
+      const payerInSplits = applyPayerCredit && item.splits.some((s) => s.personName === paidByRaw);
+
       item.splits.forEach((split) => {
         if (!map[split.personName]) map[split.personName] = {};
         const key = `${prefix} · ${item.name}`;
-        map[split.personName][key] = (map[split.personName][key] || 0) + split.amount;
+        let amt = split.amount;
+        if (applyPayerCredit && split.personName === paidByRaw) {
+          amt = split.amount - item.totalAmount;
+        }
+        map[split.personName][key] = (map[split.personName][key] || 0) + amt;
       });
+
+      if (applyPayerCredit && !payerInSplits) {
+        if (!map[paidByRaw]) map[paidByRaw] = {};
+        const key = `${prefix} · ${item.name}`;
+        map[paidByRaw][key] = (map[paidByRaw][key] || 0) - item.totalAmount;
+      }
     });
   });
 

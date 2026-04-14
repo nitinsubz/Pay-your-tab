@@ -65,14 +65,14 @@ export function ExpenseDisplay({
     if (isMobile()) {
       // Mobile format: venmo://paycharge
       if (isRequest) {
-        return `venmo://paycharge?txn=req&recipients=${venmoUsername}&amount=${formattedAmount}&note=${tabTitle}`
+        return `venmo://paycharge?txn=request&recipients=${venmoUsername}&amount=${formattedAmount}&note=${tabTitle}`
       } else {
         return `venmo://paycharge?txn=pay&recipients=${venmoUsername}&amount=${formattedAmount}&note=${tabTitle}`
       }
     } else {
       // Web format: https://venmo.com/YourUsername?txn=pay&amount=XX.XX&note=Your+Note
       if (isRequest) {
-        return `https://venmo.com/${venmoUsername}?txn=req&amount=${formattedAmount}&note=${encodedNote}`
+        return `https://venmo.com/${venmoUsername}?txn=request&amount=${formattedAmount}&note=${encodedNote}`
       } else {
         return `https://venmo.com/${venmoUsername}?txn=pay&amount=${formattedAmount}&note=${encodedNote}`
       }
