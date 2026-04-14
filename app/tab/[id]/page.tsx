@@ -80,7 +80,10 @@ export default function Home() {
           );
 
           setExpensesData(expensesMap);
-          setAllUsers(tabData.people.map((p: Person) => p.name));
+          const sortedNames = tabData.people
+            .map((p: Person) => p.name)
+            .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+          setAllUsers(sortedNames);
 
           const initialPaidStatus: Record<string, boolean> = {};
           tabData.people.forEach((person: Person) => {
