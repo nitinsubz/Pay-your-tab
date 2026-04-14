@@ -1,6 +1,25 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DraggableAttributes,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
 import { auth, db } from '@/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { addDoc, collection, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -155,6 +174,38 @@ function LineItemSplitList({
   );
 }
 
+function SortableExpenseBlock({
+  id,
+  children,
+}: {
+  id: string;
+  children: (drag: {
+    setActivatorNodeRef: (el: HTMLElement | null) => void;
+    attributes: DraggableAttributes;
+    listeners: Record<string, unknown>;
+  }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, setActivatorNodeRef } =
+    useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={isDragging ? 'relative z-20 rounded-xl opacity-[0.97] shadow-lg ring-2 ring-indigo-300/50' : ''}
+    >
+      {children({
+        setActivatorNodeRef,
+        attributes,
+        listeners: (listeners ?? {}) as Record<string, unknown>,
+      })}
+    </div>
+  );
+}
+
 function migrateDraftToBills(draftData: Record<string, unknown>): TripBill[] {
   const raw = draftData.bills;
   if (Array.isArray(raw) && raw.length > 0) {
@@ -210,6 +261,22 @@ function CreateTabContent() {
   const [isLoadingDraft, setIsLoadingDraft] = useState(true);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialLoadRef = useRef(false);
+
+  const billSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleBillsDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setBills((items) => {
+      const oldIndex = items.findIndex((b) => b.id === active.id);
+      const newIndex = items.findIndex((b) => b.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return items;
+      return arrayMove(items, oldIndex, newIndex);
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -894,36 +961,54 @@ function CreateTabContent() {
                 <p className="text-sm text-gray-600 mt-1">
                   Add each receipt. Turn on tax &amp; tip only for restaurant-style checks; leave it off for gas, groceries, or anything where your line splits are the full amounts.
                 </p>
+                <p className="text-sm text-indigo-700/90 mt-2">
+                  <span className="font-medium">Reorder:</span> drag the handle next to an expense — top to bottom is the order on the shared tab.
+                </p>
               </div>
 
-              {bills.map((bill, billIdx) => (
-                <div
-                  key={bill.id}
-                  className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 shadow-sm"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                    <div className="flex-1 min-w-[200px]">
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                        Expense {billIdx + 1}
-                      </label>
-                      <input
-                        type="text"
-                        value={bill.label}
-                        onChange={(e) => updateBillField(bill.id, { label: e.target.value })}
-                        placeholder='e.g. Dinner at Luigi&apos;s'
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium"
-                      />
-                    </div>
-                    {bills.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeExpenseBill(bill.id)}
-                        className="text-sm text-red-600 hover:text-red-800"
-                      >
-                        Remove expense
-                      </button>
-                    )}
-                  </div>
+              <DndContext sensors={billSensors} collisionDetection={closestCenter} onDragEnd={handleBillsDragEnd}>
+                <SortableContext items={bills.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-8">
+                  {bills.map((bill, billIdx) => (
+                    <SortableExpenseBlock key={bill.id} id={bill.id}>
+                      {(drag) => (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 shadow-sm">
+                          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                            <div className="flex min-w-0 flex-1 items-start gap-2">
+                              <button
+                                type="button"
+                                className="mt-0.5 shrink-0 cursor-grab touch-manipulation rounded p-1 text-slate-400 hover:bg-slate-200/80 hover:text-slate-600 active:cursor-grabbing"
+                                ref={drag.setActivatorNodeRef}
+                                aria-label="Drag to reorder expenses"
+                                title="Drag to reorder"
+                                {...drag.attributes}
+                                {...drag.listeners}
+                              >
+                                <GripVertical className="h-5 w-5" aria-hidden />
+                              </button>
+                              <div className="min-w-0 flex-1">
+                                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                                  Expense {billIdx + 1}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={bill.label}
+                                  onChange={(e) => updateBillField(bill.id, { label: e.target.value })}
+                                  placeholder='e.g. Dinner at Luigi&apos;s'
+                                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium"
+                                />
+                              </div>
+                            </div>
+                            {bills.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeExpenseBill(bill.id)}
+                                className="text-sm text-red-600 hover:text-red-800"
+                              >
+                                Remove expense
+                              </button>
+                            )}
+                          </div>
 
                   {people.length > 0 && (
                     <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/80 p-4">
@@ -1071,8 +1156,13 @@ function CreateTabContent() {
                       )}
                     </>
                   )}
-                </div>
-              ))}
+                        </div>
+                      )}
+                    </SortableExpenseBlock>
+                  ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
 
               <Button type="button" variant="outline" className="w-full border-dashed border-2 py-6" onClick={addExpenseBill}>
                 + Add another expense
