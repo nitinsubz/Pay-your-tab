@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { auth, db } from '@/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { addDoc, collection, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -42,6 +42,117 @@ function stripUndefinedDeep<T>(value: T): T {
     }
   }
   return out as T;
+}
+
+/** Keep split order aligned with the People list (stable, predictable). */
+function orderSplitNamesFromPeople(peopleList: { name: string }[], selected: string[]): string[] {
+  const sel = new Set(selected);
+  return peopleList.map((p) => p.name).filter((n) => sel.has(n));
+}
+
+/**
+ * Distribute `total` equally across names; last person gets rounding remainder so the sum matches.
+ */
+function buildEqualSplits(names: string[], total: number): Map<string, number> {
+  const m = new Map<string, number>();
+  if (names.length === 0) return m;
+  if (total === 0 || Number.isNaN(total)) {
+    names.forEach((n) => m.set(n, 0));
+    return m;
+  }
+  let assigned = 0;
+  names.forEach((name, i) => {
+    if (i === names.length - 1) {
+      m.set(name, Number((total - assigned).toFixed(2)));
+    } else {
+      const part = Number((total / names.length).toFixed(2));
+      m.set(name, part);
+      assigned += part;
+    }
+  });
+  return m;
+}
+
+function LineItemSplitList({
+  people,
+  selectedPeople,
+  customSplits,
+  totalAmount,
+  onToggle,
+  onSplitAmountChange,
+}: {
+  people: { name: string }[];
+  selectedPeople: string[];
+  customSplits: Map<string, number>;
+  totalAmount: number;
+  onToggle: (name: string, checked: boolean) => void;
+  onSplitAmountChange: (name: string, value: number) => void;
+}) {
+  const sum = useMemo(
+    () => selectedPeople.reduce((s, n) => s + (customSplits.get(n) || 0), 0),
+    [selectedPeople, customSplits]
+  );
+  const drift =
+    selectedPeople.length > 0 && totalAmount !== 0 && Math.abs(sum - totalAmount) > 0.02;
+
+  return (
+    <>
+      <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+        {people.length === 0 ? (
+          <p className="p-4 text-sm text-slate-500">Add people in step 2 first.</p>
+        ) : (
+          people.map((person, index) => {
+            const isSelected = selectedPeople.includes(person.name);
+            const splitAmount = customSplits.get(person.name) ?? 0;
+            const id = `line-split-${index}`;
+            return (
+              <div
+                key={person.name}
+                className={`flex flex-wrap items-center gap-3 border-b border-slate-100 px-3 py-2.5 last:border-b-0 ${
+                  isSelected ? 'bg-indigo-50/60' : 'bg-white'
+                }`}
+              >
+                <input
+                  id={id}
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    onToggle(person.name, e.target.checked);
+                  }}
+                  className="h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer text-sm font-medium text-slate-900">
+                  {person.name}
+                </label>
+                {isSelected && (
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={splitAmount === 0 ? '' : splitAmount}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      onSplitAmountChange(person.name, Number.isNaN(v) ? 0 : v);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-28 shrink-0 rounded-md border border-slate-300 px-2 py-1 text-right text-sm tabular-nums"
+                    placeholder="0.00"
+                    aria-label={`${person.name} share`}
+                  />
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+      {selectedPeople.length > 0 && totalAmount !== 0 && (
+        <p className={`mt-2 text-xs ${drift ? 'text-amber-700' : 'text-slate-500'}`}>
+          Shares sum to ${sum.toFixed(2)}
+          {drift ? ` · line total is $${totalAmount.toFixed(2)}` : ''}
+        </p>
+      )}
+    </>
+  );
 }
 
 function migrateDraftToBills(draftData: Record<string, unknown>): TripBill[] {
@@ -331,25 +442,35 @@ function CreateTabContent() {
     setPeople(people.filter((_, i) => i !== index));
   };
 
-  const handlePersonSelection = (personName: string) => {
-    if (selectedPeople.includes(personName)) {
-      setSelectedPeople(selectedPeople.filter(p => p !== personName));
-      const newSplits = new Map(newItem.customSplits);
-      newSplits.delete(personName);
-      setNewItem(prev => ({ ...prev, customSplits: newSplits }));
-    } else {
-      setSelectedPeople([...selectedPeople, personName]);
-      const selectedCount = selectedPeople.length + 1;
-      const splitAmount = newItem.totalAmount / selectedCount;
-      const newSplits = new Map(newItem.customSplits);
-      selectedPeople.forEach(p => {
-        if (newSplits.has(p)) {
-          newSplits.set(p, splitAmount);
-        }
-      });
-      newSplits.set(personName, splitAmount);
-      setNewItem(prev => ({ ...prev, customSplits: newSplits }));
-    }
+  const togglePersonInSplit = (personName: string, checked: boolean) => {
+    setSelectedPeople((prev) => {
+      let nextRaw: string[];
+      if (checked) {
+        nextRaw = prev.includes(personName) ? prev : [...prev, personName];
+      } else {
+        nextRaw = prev.filter((p) => p !== personName);
+      }
+      const ordered = orderSplitNamesFromPeople(people, nextRaw);
+      setNewItem((item) => ({
+        ...item,
+        customSplits: buildEqualSplits(ordered, item.totalAmount),
+      }));
+      return ordered;
+    });
+  };
+
+  const selectAllPeopleForLineItem = () => {
+    const ordered = people.map((p) => p.name);
+    setSelectedPeople(ordered);
+    setNewItem((item) => ({
+      ...item,
+      customSplits: buildEqualSplits(ordered, item.totalAmount),
+    }));
+  };
+
+  const clearPeopleForLineItem = () => {
+    setSelectedPeople([]);
+    setNewItem((item) => ({ ...item, customSplits: new Map() }));
   };
 
   const handleAddItem = () => {
@@ -405,8 +526,9 @@ function CreateTabContent() {
   const openAddItem = (billId: string) => {
     setItemTargetBillId(billId);
     setEditingItem(null);
+    const everyone = people.map((p) => p.name);
+    setSelectedPeople(everyone);
     setNewItem({ name: '', totalAmount: 0, customSplits: new Map(), paidBy: '' });
-    setSelectedPeople([]);
     setIsAddItemOpen(true);
   };
 
@@ -421,7 +543,7 @@ function CreateTabContent() {
       customSplits,
       paidBy: item.paidBy ?? '',
     });
-    setSelectedPeople(item.splits.map((split) => split.personName));
+    setSelectedPeople(orderSplitNamesFromPeople(people, item.splits.map((s) => s.personName)));
     setEditingItem({ billId, index });
     setItemTargetBillId(billId);
     setIsAddItemOpen(true);
@@ -1266,11 +1388,8 @@ function CreateTabContent() {
                     const value = parseFloat(raw);
                     const nextAmount = raw === '' || Number.isNaN(value) ? 0 : value;
                     if (selectedPeople.length > 0 && raw !== '' && !Number.isNaN(value)) {
-                      const splitAmount = value / selectedPeople.length;
-                      const newSplits = new Map<string, number>();
-                      selectedPeople.forEach((person) => {
-                        newSplits.set(person, splitAmount);
-                      });
+                      const ordered = orderSplitNamesFromPeople(people, selectedPeople);
+                      const newSplits = buildEqualSplits(ordered, nextAmount);
                       setNewItem((prev) => ({ ...prev, totalAmount: nextAmount, customSplits: newSplits }));
                     } else {
                       setNewItem((prev) => ({ ...prev, totalAmount: nextAmount }));
@@ -1300,44 +1419,47 @@ function CreateTabContent() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Split Between</label>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {people.map((person, index) => {
-                    const isSelected = selectedPeople.includes(person.name);
-                    const splitAmount = newItem.customSplits.get(person.name) || 0;
-                    return (
-                      <div key={index} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded">
-                        <button
-                          type="button"
-                          onClick={() => handlePersonSelection(person.name)}
-                          className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                            isSelected
-                              ? 'bg-indigo-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          {person.name}
-                        </button>
-                        {isSelected && (
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={splitAmount || ''}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value);
-                              setNewItem(prev => ({
-                                ...prev,
-                                customSplits: new Map(prev.customSplits).set(person.name, value || 0)
-                              }));
-                            }}
-                            className="w-32 rounded-md border-gray-300"
-                            placeholder="Amount"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-sm font-medium text-gray-700">Split between</label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={selectAllPeopleForLineItem}
+                      disabled={people.length === 0}
+                    >
+                      Select all
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={clearPeopleForLineItem}
+                      disabled={selectedPeople.length === 0}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                 </div>
+                <p className="text-xs text-gray-500 mb-2">
+                  Check who shares this line. Amounts rebalance when you change the selection (you can still edit a share manually).
+                </p>
+                <LineItemSplitList
+                  people={people}
+                  selectedPeople={selectedPeople}
+                  customSplits={newItem.customSplits}
+                  totalAmount={newItem.totalAmount}
+                  onToggle={togglePersonInSplit}
+                  onSplitAmountChange={(name, value) => {
+                    setNewItem((prev) => ({
+                      ...prev,
+                      customSplits: new Map(prev.customSplits).set(name, value),
+                    }));
+                  }}
+                />
               </div>
             </div>
             <DialogFooter>
