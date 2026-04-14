@@ -10,6 +10,7 @@ import {
   useSensors,
   type DragEndEvent,
   type DraggableAttributes,
+  type DraggableSyntheticListeners,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -203,6 +204,36 @@ function SortableExpenseBlock({
         listeners: (listeners ?? {}) as Record<string, unknown>,
       })}
     </div>
+  );
+}
+
+function SortableLineItemBlock({
+  id,
+  children,
+}: {
+  id: string;
+  children: (drag: {
+    setActivatorNodeRef: (el: HTMLElement | null) => void;
+    attributes: DraggableAttributes;
+    listeners: DraggableSyntheticListeners | undefined;
+  }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, setActivatorNodeRef } =
+    useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-lg border border-slate-100 bg-white p-3 ${
+        isDragging ? 'relative z-20 shadow-md ring-2 ring-indigo-200' : ''
+      }`}
+    >
+      {children({ setActivatorNodeRef, attributes, listeners })}
+    </li>
   );
 }
 
@@ -589,6 +620,31 @@ function CreateTabContent() {
       prev.map((b) => (b.id === billId ? { ...b, items: b.items.filter((_, i) => i !== index) } : b))
     );
   };
+
+  const parseLineDragIndex = (billId: string, dragId: string): number => {
+    const prefix = `${billId}-line-`;
+    if (!dragId.startsWith(prefix)) return -1;
+    const idx = Number(dragId.slice(prefix.length));
+    return Number.isInteger(idx) ? idx : -1;
+  };
+
+  const handleLineItemDragEnd = useCallback((billId: string, event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const fromIndex = parseLineDragIndex(billId, String(active.id));
+    const toIndex = parseLineDragIndex(billId, String(over.id));
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+    setBills((prev) =>
+      prev.map((b) => {
+        if (b.id !== billId) return b;
+        if (fromIndex >= b.items.length || toIndex >= b.items.length) return b;
+        const next = [...b.items];
+        const [moved] = next.splice(fromIndex, 1);
+        next.splice(toIndex, 0, moved);
+        return { ...b, items: next };
+      })
+    );
+  }, []);
 
   const openAddItem = (billId: string) => {
     setItemTargetBillId(billId);
@@ -1053,12 +1109,26 @@ function CreateTabContent() {
                       No line items yet for this expense.
                     </p>
                   ) : (
-                    <ul className="space-y-2 mb-4">
-                      {bill.items
-                        .map((item, index) => ({ item, index }))
-                        .filter(({ item }) => item.name !== 'Tip & Tax')
-                        .map(({ item, index }) => (
-                          <li key={`${bill.id}-${index}`} className="p-3 bg-white rounded-lg border border-slate-100 flex justify-between gap-3">
+                    <DndContext
+                      sensors={billSensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={(event) => handleLineItemDragEnd(bill.id, event)}
+                    >
+                      <SortableContext
+                        items={bill.items
+                          .map((item, index) => ({ item, index }))
+                          .filter(({ item }) => item.name !== 'Tip & Tax')
+                          .map(({ index }) => `${bill.id}-line-${index}`)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <ul className="space-y-2 mb-4">
+                          {bill.items
+                            .map((item, index) => ({ item, index }))
+                            .filter(({ item }) => item.name !== 'Tip & Tax')
+                            .map(({ item, index }) => (
+                          <SortableLineItemBlock key={`${bill.id}-${index}`} id={`${bill.id}-line-${index}`}>
+                            {(drag) => (
+                          <div className="flex justify-between gap-3">
                             <div>
                               <div className="font-medium">{item.name}</div>
                               {(item.paidBy || bill.paidBy) && (
@@ -1080,7 +1150,18 @@ function CreateTabContent() {
                                 )}
                               </div>
                             </div>
-                            <div className="flex gap-2 shrink-0">
+                            <div className="flex gap-2 shrink-0 items-start">
+                              <button
+                                type="button"
+                                className="mt-0.5 shrink-0 cursor-grab touch-manipulation rounded p-1 text-slate-400 hover:bg-slate-200/80 hover:text-slate-600 active:cursor-grabbing"
+                                ref={drag.setActivatorNodeRef}
+                                aria-label="Drag to reorder line item"
+                                title="Drag to reorder"
+                                {...drag.attributes}
+                                {...drag.listeners}
+                              >
+                                <GripVertical className="h-4 w-4" aria-hidden />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleEditItem(bill.id, index)}
@@ -1096,9 +1177,13 @@ function CreateTabContent() {
                                 Delete
                               </button>
                             </div>
-                          </li>
+                          </div>
+                            )}
+                          </SortableLineItemBlock>
                         ))}
-                    </ul>
+                        </ul>
+                      </SortableContext>
+                    </DndContext>
                   )}
 
                   <div className="rounded-lg border border-slate-200 bg-white p-4 mb-3">
