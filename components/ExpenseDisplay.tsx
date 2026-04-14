@@ -45,6 +45,34 @@ export function ExpenseDisplay({
   }, [documentId])
 
   const total = Object.values(expenses).reduce((sum, expense) => sum + expense, 0)
+  const groupedExpenses = React.useMemo(() => {
+    const groups = new Map<string, Array<{ label: string; amount: number; fullKey: string }>>()
+    Object.entries(expenses).forEach(([fullKey, amount]) => {
+      const parts = fullKey.split(' · ')
+      const section = (parts[0] || 'Other').trim() || 'Other'
+      const label = (parts.slice(1).join(' · ') || parts[0] || fullKey).trim()
+      if (!groups.has(section)) groups.set(section, [])
+      groups.get(section)!.push({ label, amount, fullKey })
+    })
+    return Array.from(groups.entries()).map(([section, items]) => ({
+      section,
+      items,
+      subtotal: items.reduce((s, it) => s + it.amount, 0),
+    }))
+  }, [expenses])
+  const [collapsedSections, setCollapsedSections] = React.useState<Record<string, boolean>>({})
+  React.useEffect(() => {
+    setCollapsedSections((prev) => {
+      const next: Record<string, boolean> = { ...prev }
+      groupedExpenses.forEach((g) => {
+        if (next[g.section] === undefined) next[g.section] = true
+      })
+      Object.keys(next).forEach((k) => {
+        if (!groupedExpenses.some((g) => g.section === k)) delete next[k]
+      })
+      return next
+    })
+  }, [groupedExpenses])
 
   const formatAmount = (amount: number) => {
     return amount < 0 
@@ -137,17 +165,53 @@ export function ExpenseDisplay({
           <CardTitle>{name}&apos;s Expenses</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2">
-            {Object.entries(expenses).map(([category, amount]) => (
-              <li 
-                key={category} 
-                className={`flex justify-between ${amount < 0 ? 'text-blue-600' : ''}`}
-              >
-                <span>{category}</span>
-                <span>{formatAmount(amount)}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-3">
+            {groupedExpenses.map((group) => {
+              const collapsed = collapsedSections[group.section] ?? true
+              return (
+                <div key={group.section} className="rounded-lg border border-slate-200 bg-slate-50/80">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsedSections((prev) => ({
+                        ...prev,
+                        [group.section]: !collapsed,
+                      }))
+                    }
+                    className="w-full px-3 py-2 flex items-center justify-between text-left"
+                  >
+                    <div>
+                      <div className="font-semibold text-slate-900">{group.section}</div>
+                      <div className="text-xs text-slate-500">
+                        {group.items.length} line item{group.items.length === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`font-semibold ${group.subtotal < 0 ? 'text-blue-600' : 'text-slate-800'}`}>
+                        {formatAmount(group.subtotal)}
+                      </span>
+                      <span className="text-slate-500 text-sm">{collapsed ? '▸' : '▾'}</span>
+                    </div>
+                  </button>
+                  {!collapsed && (
+                    <ul className="px-3 pb-3 space-y-1">
+                      {group.items.map((item) => (
+                        <li
+                          key={item.fullKey}
+                          className={`flex justify-between gap-3 pl-4 py-1 text-sm border-l-2 border-slate-200 ${
+                            item.amount < 0 ? 'text-blue-600' : 'text-slate-700'
+                          }`}
+                        >
+                          <span className="truncate">{item.label}</span>
+                          <span className="tabular-nums">{formatAmount(item.amount)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
           <div className="mt-4 text-xl font-bold flex justify-between">
             <span>Total</span>
             <span>{formatAmount(total)}</span>
