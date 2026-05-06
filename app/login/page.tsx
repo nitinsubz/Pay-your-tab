@@ -1,22 +1,23 @@
 'use client';
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { loginWithGoogle, logout } from "@/lib/authutils";
 import { User } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { db } from '@/firebaseConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-export default function LoginPage() {
+function LoginForm() {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect');
 
   const handleLogin = async () => {
     const { success, user, error } = await loginWithGoogle();
     if (success && user) {
       setUser(user);
-      // Create user profile if it doesn't exist
       try {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
@@ -27,18 +28,21 @@ export default function LoginPage() {
             createdAt: serverTimestamp()
           });
         }
-        
-        // Check if user has venmo username set
+
+        if (redirectTo) {
+          router.push(redirectTo);
+          return;
+        }
+
         const updatedSnap = await getDoc(userRef);
         if (!updatedSnap.exists() || !updatedSnap.data()?.venmoUsername) {
-          // Redirect to settings to set venmo username
           router.push('/settings?setup=true');
         } else {
           router.push('/tabs');
         }
       } catch (error) {
         console.error('Error handling login:', error);
-        router.push('/tabs'); // Fallback to tabs page
+        router.push(redirectTo || '/tabs');
       }
     } else {
       console.error(error);
@@ -92,5 +96,13 @@ export default function LoginPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -160,7 +160,7 @@ export function ExpenseDisplay({
 
   return (
     <>
-      <Card className={`w-full max-w-md ${isPaid ? 'bg-green-50' : ''}`}>
+      <Card className={`w-full ${isPaid ? 'bg-green-50' : ''}`}>
         <CardHeader>
           <CardTitle>{name}&apos;s Expenses</CardTitle>
         </CardHeader>

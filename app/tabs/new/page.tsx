@@ -29,6 +29,7 @@ import { Navbar } from '@/components/Navbar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { createEmptyBill, normalizeTripBill, billUsesTaxTip, sumBillSplits, type TripBill } from '@/lib/tripLedger';
+import { generateInviteCode } from '@/lib/inviteUtils';
 
 interface Person {
   name: string;
@@ -290,6 +291,12 @@ function CreateTabContent() {
   const [isEditingActiveTab, setIsEditingActiveTab] = useState(false);
   const [editLoadError, setEditLoadError] = useState<string | null>(null);
   const [isLoadingDraft, setIsLoadingDraft] = useState(true);
+  /** True if the current user owns this tab; false if they're a collaborator. */
+  const [isOwner, setIsOwner] = useState(true);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copiedInvite, setCopiedInvite] = useState(false);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialLoadRef = useRef(false);
 
@@ -345,9 +352,13 @@ function CreateTabContent() {
           const tabSnap = await getDoc(tabRef);
           if (tabSnap.exists()) {
             const tabData = tabSnap.data();
-            if (tabData.userId === user.uid && tabData.status === 'active') {
+            const userIsOwner = tabData.userId === user.uid;
+            const userIsMember = (tabData.memberIds || []).includes(user.uid);
+            if (userIsOwner || userIsMember) {
+              setIsOwner(userIsOwner);
+              setInviteCode(tabData.inviteCode || null);
               setDraftId(editIdParam);
-              setIsEditingActiveTab(true);
+              setIsEditingActiveTab(tabData.status === 'active');
               setTitle(tabData.title || '');
               setDescription(tabData.description || '');
               setVenmoUsername(tabData.venmoUsername || userSnap.data()?.venmoUsername || '');
@@ -360,11 +371,7 @@ function CreateTabContent() {
               );
               setBills(migrateDraftToBills(tabData as Record<string, unknown>));
             } else {
-              setEditLoadError(
-                tabData.userId !== user.uid
-                  ? 'You can only edit your own tabs.'
-                  : 'Only published tabs can be opened for editing this way.'
-              );
+              setEditLoadError('You need an invite to edit this tab.');
             }
           } else {
             setEditLoadError('That tab could not be found.');
@@ -372,10 +379,14 @@ function CreateTabContent() {
         } else if (draftIdParam) {
           const draftRef = doc(db, 'tabs', draftIdParam);
           const draftSnap = await getDoc(draftRef);
-          
+
           if (draftSnap.exists()) {
             const draftData = draftSnap.data();
-            if (draftData.status === 'draft' && draftData.userId === user.uid) {
+            const userIsOwner = draftData.userId === user.uid;
+            const userIsMember = (draftData.memberIds || []).includes(user.uid);
+            if (draftData.status === 'draft' && (userIsOwner || userIsMember)) {
+              setIsOwner(userIsOwner);
+              setInviteCode(draftData.inviteCode || null);
               setDraftId(draftIdParam);
               setIsEditingActiveTab(false);
               setTitle(draftData.title || '');
@@ -419,32 +430,65 @@ function CreateTabContent() {
     }
 
     try {
-      const draftData = {
-        userId: user.uid,
-        title,
-        description,
-        venmoUsername,
-        people: stripUndefinedDeep(people),
-        bills: stripUndefinedDeep(bills),
-        status: isEditingActiveTab ? ('active' as const) : ('draft' as const),
-        updatedAt: serverTimestamp()
-      };
-
       if (draftId) {
         const draftRef = doc(db, 'tabs', draftId);
-        await updateDoc(draftRef, draftData);
-      } else {
-        const newDraftData = {
-          ...draftData,
-          createdAt: serverTimestamp()
-        };
-        const docRef = await addDoc(collection(db, 'tabs'), newDraftData);
+        const updateData = isOwner
+          ? {
+              userId: user.uid,
+              title,
+              description,
+              venmoUsername,
+              people: stripUndefinedDeep(people),
+              bills: stripUndefinedDeep(bills),
+              status: isEditingActiveTab ? ('active' as const) : ('draft' as const),
+              updatedAt: serverTimestamp(),
+            }
+          : {
+              title,
+              description,
+              people: stripUndefinedDeep(people),
+              bills: stripUndefinedDeep(bills),
+              updatedAt: serverTimestamp(),
+            };
+        await updateDoc(draftRef, updateData);
+      } else if (isOwner) {
+        const docRef = await addDoc(collection(db, 'tabs'), {
+          userId: user.uid,
+          title,
+          description,
+          venmoUsername,
+          people: stripUndefinedDeep(people),
+          bills: stripUndefinedDeep(bills),
+          status: 'draft' as const,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
         setDraftId(docRef.id);
       }
     } catch (error) {
       console.error('Error auto-saving draft:', error);
     }
-  }, [title, description, venmoUsername, people, bills, draftId, isEditingActiveTab]);
+  }, [title, description, venmoUsername, people, bills, draftId, isEditingActiveTab, isOwner]);
+
+  const handleShare = async () => {
+    if (inviteCode) { setShareOpen(true); return; }
+    if (!draftId) return;
+    setIsGeneratingCode(true);
+    const code = generateInviteCode();
+    try {
+      await updateDoc(doc(db, 'tabs', draftId), { inviteCode: code });
+      setInviteCode(code);
+    } catch (e) { console.error(e); }
+    setIsGeneratingCode(false);
+    setShareOpen(true);
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteCode) return;
+    await navigator.clipboard.writeText(`${window.location.origin}/join/${inviteCode}`);
+    setCopiedInvite(true);
+    setTimeout(() => setCopiedInvite(false), 2000);
+  };
 
   // Debounced auto-save
   useEffect(() => {
@@ -878,20 +922,39 @@ function CreateTabContent() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <main className="container mx-auto px-4 py-8 pt-20 max-w-4xl">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">
-            {isEditingActiveTab ? 'Edit trip tab' : 'New trip tab'}
-          </h1>
-          {draftId && !isEditingActiveTab && (
-            <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-              Draft saved automatically
-            </span>
-          )}
-          {isEditingActiveTab && (
-            <span className="text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full">
-              Editing published tab — changes save automatically
-            </span>
-          )}
+        <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl font-bold">
+              {!isOwner ? `Editing: ${title || 'trip tab'}` : isEditingActiveTab ? 'Edit trip tab' : 'New trip tab'}
+            </h1>
+            {!isOwner && (
+              <p className="text-sm text-slate-500 mt-1">You&apos;re a collaborator — add your expenses and people below.</p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {isOwner && draftId && !isEditingActiveTab && (
+              <button
+                onClick={handleShare}
+                disabled={isGeneratingCode}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-800 transition-colors disabled:opacity-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                {isGeneratingCode ? 'Generating…' : inviteCode ? 'Copy invite link' : 'Invite people'}
+              </button>
+            )}
+            {isOwner && draftId && !isEditingActiveTab && (
+              <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                Draft saved automatically
+              </span>
+            )}
+            {isEditingActiveTab && isOwner && (
+              <span className="text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full">
+                Changes save automatically
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Step Indicator */}
@@ -1411,13 +1474,10 @@ function CreateTabContent() {
               Previous
             </Button>
             {currentStep < totalSteps ? (
-              <Button
-                onClick={nextStep}
-                disabled={!canProceedToNextStep()}
-              >
+              <Button onClick={nextStep} disabled={!canProceedToNextStep()}>
                 Next
               </Button>
-            ) : (
+            ) : isOwner ? (
               <Button
                 onClick={handleSubmit}
                 disabled={!title || !venmoUsername || people.length === 0 || !billsReady()}
@@ -1428,9 +1488,42 @@ function CreateTabContent() {
                     ? 'Save changes'
                     : 'Create trip tab'}
               </Button>
+            ) : (
+              <Button onClick={() => draftId && router.push(`/tab/${draftId}`)} disabled={!draftId}>
+                Done — view tab
+              </Button>
             )}
           </div>
         </div>
+
+        {/* Invite / share dialog */}
+        <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Invite collaborators</DialogTitle>
+              <DialogDescription>
+                Share this link so others can join and add their expenses to this tab.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                readOnly
+                value={inviteCode ? `${window.location.origin}/join/${inviteCode}` : ''}
+                className="flex-1 text-sm border border-slate-300 rounded-md px-3 py-2 bg-slate-50 text-slate-700"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button variant="outline" onClick={handleCopyInvite}>
+                {copiedInvite ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Anyone with this link can join, add their expenses, and edit the tab — just like you.
+            </p>
+            <DialogFooter className="mt-2">
+              <Button variant="outline" onClick={() => setShareOpen(false)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Add Person Dialog */}
         <Dialog open={isAddPersonOpen} onOpenChange={setIsAddPersonOpen}>
