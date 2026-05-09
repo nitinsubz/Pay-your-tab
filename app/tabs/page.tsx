@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { auth } from '@/firebaseConfig';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, getDocs, query, where, doc, deleteDoc } from 'firebase/firestore';
@@ -29,6 +29,34 @@ interface Tab {
   inviteCode?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sharedExpenses?: any[];
+}
+
+function SectionLabel({ children, count }: { children: React.ReactNode; count?: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{children}</span>
+      {count !== undefined && count > 0 && (
+        <span className="text-xs font-medium text-gray-300">{count}</span>
+      )}
+      <div className="flex-1 h-px bg-gray-100 ml-1" />
+    </div>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
+}
+
+function ChevronRight() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  );
 }
 
 export default function TabsDashboard() {
@@ -74,7 +102,7 @@ export default function TabsDashboard() {
       const n = getBillsFromDocument(tab).length;
       if (n <= 1) return null;
       return (
-        <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
+        <span className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-500">
           {billCountLabel(getBillsFromDocument(tab))}
         </span>
       );
@@ -106,8 +134,8 @@ export default function TabsDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+      <div className="flex items-center justify-center min-h-screen bg-[#F7F7F8]">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-indigo-500" />
       </div>
     );
   }
@@ -136,211 +164,193 @@ export default function TabsDashboard() {
       return bDate.getTime() - aDate.getTime();
     });
 
+  const firstName = user?.displayName?.split(' ')[0] || user?.email;
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F7F7F8]">
       <Navbar />
-      <main className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">
-          Welcome, {user?.displayName || user?.email}
-        </h1>
+      <main className="max-w-2xl mx-auto px-4 py-10">
+
+        {/* Greeting */}
+        <div className="mb-10">
+          <p className="text-sm text-gray-400 mb-0.5">Welcome back</p>
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{firstName}</h1>
+        </div>
 
         {/* Joined tabs */}
         {joinedTabs.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-blue-900">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Tabs I&apos;ve Joined ({joinedTabs.length})
-            </h2>
-            <ul className="space-y-4">
+          <section className="mb-8">
+            <SectionLabel count={joinedTabs.length}>Tabs I&apos;ve Joined</SectionLabel>
+            <div className="space-y-3">
               {joinedTabs.map((tab) => (
-                <li key={tab.id} className="border-b border-blue-200 pb-4 flex justify-between items-center gap-4">
+                <div key={tab.id} className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium truncate">{tab.title || 'Untitled Tab'}</h3>
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="font-semibold text-gray-900 text-[15px]">{tab.title || 'Untitled Tab'}</span>
                       {tripBadge(tab)}
                     </div>
-                    <p className="text-gray-600 text-sm">{tab.description || ''}</p>
+                    {tab.description && <p className="text-sm text-gray-400 leading-snug">{tab.description}</p>}
                     {(tab.sharedExpenses?.length ?? 0) > 0 && (
-                      <p className="text-xs text-blue-700 mt-1">
+                      <span className="inline-block mt-1.5 text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full font-medium">
                         {tab.sharedExpenses!.length} shared {tab.sharedExpenses!.length === 1 ? 'expense' : 'expenses'}
-                      </p>
+                      </span>
                     )}
                   </div>
                   <button
                     onClick={() => router.push(`/tabs/new?editId=${tab.id}`)}
-                    className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors text-sm font-medium flex items-center gap-2"
+                    className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5"
                   >
                     Add expenses
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    <ChevronRight />
                   </button>
-                </li>
+                </div>
               ))}
-            </ul>
-          </div>
+            </div>
+          </section>
         )}
 
         {/* Drafts */}
         {draftTabs.length > 0 && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Drafts
-            </h2>
-            <ul className="space-y-4">
+          <section className="mb-8">
+            <SectionLabel count={draftTabs.length}>Drafts</SectionLabel>
+            <div className="space-y-3">
               {draftTabs.map((tab) => (
-                <li key={tab.id} className="border-b border-yellow-200 pb-4 flex justify-between items-center gap-4">
+                <div key={tab.id} className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium">{tab.title || 'Untitled Tab'}</h3>
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="font-semibold text-gray-900 text-[15px]">{tab.title || 'Untitled Tab'}</span>
                       {tripBadge(tab)}
                     </div>
-                    <p className="text-gray-600 text-sm">{tab.description || 'No description'}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Last saved: {tab.updatedAt?.toDate ? new Date(tab.updatedAt.toDate()).toLocaleString() : 'Recently'}
+                    <p className="text-sm text-gray-400 leading-snug">{tab.description || 'No description'}</p>
+                    <p className="text-xs text-gray-300 mt-1">
+                      Last saved {tab.updatedAt?.toDate ? new Date(tab.updatedAt.toDate()).toLocaleString() : 'recently'}
                     </p>
                   </div>
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => router.push(`/tabs/new?draftId=${tab.id}`)}
-                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md transition-colors text-sm font-medium"
+                      className="bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
                     >
-                      Continue editing
+                      Continue
                     </button>
                     <button
                       onClick={() => handleDeleteClick(tab)}
-                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md transition-colors"
+                      className="p-2 text-gray-300 hover:text-red-400 rounded-xl transition-colors"
+                      title="Delete draft"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
+                      <TrashIcon />
                     </button>
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
-          </div>
+            </div>
+          </section>
         )}
 
         {/* Active tabs with unpaid people */}
         {unpaidTabs.length > 0 && (
-          <div className="bg-white border border-slate-200 rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-slate-800">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Active Tabs ({unpaidTabs.length})
-            </h2>
-            <ul className="space-y-5">
+          <section className="mb-8">
+            <SectionLabel count={unpaidTabs.length}>Active Tabs</SectionLabel>
+            <div className="space-y-3">
               {unpaidTabs.map((tab) => {
                 const totalPeople = tab.people?.length || 0;
                 const unpaidCount = tab.people?.filter((p) => !p.paid).length || 0;
                 const paidCount = totalPeople - unpaidCount;
 
                 return (
-                  <li key={tab.id} className="border-b border-slate-100 pb-5 last:border-0 last:pb-0">
-                    <div className="flex justify-between items-start gap-4">
+                  <div key={tab.id} className="bg-amber-50 rounded-2xl border border-amber-100 px-5 py-4">
+                    <div className="flex items-start gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                          <h3 className="font-semibold text-slate-900">{tab.title}</h3>
+                          <span className="font-semibold text-gray-900 text-[15px]">{tab.title}</span>
                           {tripBadge(tab)}
                         </div>
-                        {tab.description && <p className="text-gray-600 text-sm">{tab.description}</p>}
-                        <div className="mt-2 flex items-center gap-3 flex-wrap">
-                          {totalPeople > 0 && (
-                            <span className="text-sm text-red-600 font-medium">
-                              {unpaidCount} of {totalPeople} unpaid
-                              {paidCount > 0 && <span className="text-gray-400 font-normal"> · {paidCount} paid</span>}
-                            </span>
-                          )}
-                          {(tab.sharedExpenses?.length ?? 0) > 0 && (
-                            <span className="text-sm text-indigo-600">
-                              {tab.sharedExpenses!.length} shared {tab.sharedExpenses!.length === 1 ? 'expense' : 'expenses'}
-                            </span>
-                          )}
-                        </div>
+                        {tab.description && (
+                          <p className="text-sm text-amber-700/60 leading-snug">{tab.description}</p>
+                        )}
+                        {totalPeople > 0 && (
+                          <p className="text-xs text-amber-600/80 mt-1.5">
+                            {unpaidCount} of {totalPeople} haven&apos;t paid
+                            {paidCount > 0 && <span className="text-amber-500/60"> · {paidCount} paid</span>}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => router.push(`/tab/${tab.id}`)}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5"
+                        >
+                          Open tab
+                          <ChevronRight />
+                        </button>
+                        <button
+                          onClick={() => router.push(`/tabs/new?editId=${tab.id}`)}
+                          className="p-2 text-gray-400 hover:text-gray-600 rounded-xl transition-colors text-sm font-medium"
+                          title="Edit"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(tab)}
+                          className="p-2 text-gray-300 hover:text-red-400 rounded-xl transition-colors"
+                          title="Delete"
+                        >
+                          <TrashIcon />
+                        </button>
                       </div>
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Fully paid tabs */}
+        {(fullyPaidTabs.length > 0 || unpaidTabs.length === 0) && (
+          <section>
+            <SectionLabel count={fullyPaidTabs.length}>Fully Paid</SectionLabel>
+            {fullyPaidTabs.length === 0 ? (
+              <p className="text-sm text-gray-400 pl-1">No fully paid tabs yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {fullyPaidTabs.map((tab) => (
+                  <div key={tab.id} className="bg-emerald-50 rounded-2xl border border-emerald-100 px-5 py-4 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <span className="font-semibold text-gray-900 text-[15px]">{tab.title}</span>
+                        {tripBadge(tab)}
+                      </div>
+                      {tab.description && <p className="text-sm text-emerald-700/60 leading-snug">{tab.description}</p>}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => router.push(`/tab/${tab.id}`)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors text-sm font-medium flex items-center gap-1.5"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
                       >
-                        Open tab
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
+                        View
                       </button>
                       <button
                         onClick={() => router.push(`/tabs/new?editId=${tab.id}`)}
-                        className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-md transition-colors text-sm"
+                        className="p-2 text-gray-400 hover:text-gray-600 rounded-xl transition-colors text-sm font-medium"
+                        title="Edit"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDeleteClick(tab)}
-                        className="border border-red-200 text-red-600 hover:bg-red-50 px-3 py-2 rounded-md transition-colors text-sm"
+                        className="p-2 text-gray-300 hover:text-red-400 rounded-xl transition-colors"
+                        title="Delete"
                       >
-                        Delete
+                        <TrashIcon />
                       </button>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
-
-        {/* Fully paid tabs */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Fully Paid {fullyPaidTabs.length > 0 && `(${fullyPaidTabs.length})`}
-          </h2>
-          {fullyPaidTabs.length === 0 ? (
-            <p className="text-gray-500">No fully paid tabs yet.</p>
-          ) : (
-            <ul className="space-y-4">
-              {fullyPaidTabs.map((tab) => (
-                <li key={tab.id} className="border-b pb-4 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <h3 className="font-medium">{tab.title}</h3>
-                    {tripBadge(tab)}
-                    <span className="text-sm text-green-600 font-medium">All paid</span>
-                  </div>
-                  {tab.description && <p className="text-gray-600 text-sm">{tab.description}</p>}
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => router.push(`/tab/${tab.id}`)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors text-sm font-medium"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => router.push(`/tabs/new?editId=${tab.id}`)}
-                      className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-md transition-colors text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(tab)}
-                      className="border border-red-200 text-red-600 hover:bg-red-50 px-3 py-2 rounded-md transition-colors text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </main>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
