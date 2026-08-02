@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/firebaseConfig';
+import { db } from '@/firebaseConfig';
 import { Navbar } from '@/components/Navbar';
+import { useEffectiveAuth } from '@/lib/impersonation';
 
 interface Person {
   name: string;
@@ -31,14 +31,10 @@ export default function TabPaymentsDashboard() {
   const [title, setTitle] = useState('');
   const [tabExists, setTabExists] = useState(true);
   const [ownerId, setOwnerId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [paidNames, setPaidNames] = useState<string[]>([]);
   const [unpaidNames, setUnpaidNames] = useState<string[]>([]);
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setCurrentUserId(u?.uid ?? null));
-    return () => unsub();
-  }, []);
+  const { effectiveUid: currentUserId } = useEffectiveAuth();
 
   useEffect(() => {
     setLoading(true);

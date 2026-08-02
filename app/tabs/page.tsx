@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { auth } from '@/firebaseConfig';
-import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, getDocs, query, where, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/firebaseConfig';
 import { Navbar } from '@/components/Navbar';
@@ -10,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { getBillsFromDocument, billCountLabel } from '@/lib/tripLedger';
+import { useEffectiveAuth } from '@/lib/impersonation';
 
 interface TabPerson {
   name: string;
@@ -61,7 +60,7 @@ function ChevronRight() {
 
 export default function TabsDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<User>();
+  const { authUser, effectiveUser, ready } = useEffectiveAuth();
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [joinedTabs, setJoinedTabs] = useState<Tab[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,17 +84,18 @@ export default function TabsDashboard() {
     setLoading(false);
   };
 
+  const effectiveUid = effectiveUser?.uid;
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) {
-        router.push('/login');
-        return;
-      }
-      setUser(currentUser);
-      await fetchTabs(currentUser.uid);
-    });
-    return () => unsubscribe();
-  }, [router]);
+    if (!ready) return;
+    if (!authUser || !effectiveUid) {
+      router.push('/login');
+      return;
+    }
+    setLoading(true);
+    fetchTabs(effectiveUid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, authUser, effectiveUid, router]);
 
   const tripBadge = (tab: Tab) => {
     try {
@@ -117,11 +117,11 @@ export default function TabsDashboard() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!tabToDelete || !user) return;
+    if (!tabToDelete || !effectiveUid) return;
     try {
       setIsDeleting(true);
       await deleteDoc(doc(db, 'tabs', tabToDelete.id));
-      await fetchTabs(user.uid);
+      await fetchTabs(effectiveUid);
       setDeleteDialogOpen(false);
       setTabToDelete(null);
     } catch (error) {
@@ -164,7 +164,7 @@ export default function TabsDashboard() {
       return bDate.getTime() - aDate.getTime();
     });
 
-  const firstName = user?.displayName?.split(' ')[0] || user?.email;
+  const firstName = effectiveUser?.displayName?.split(' ')[0] || effectiveUser?.email;
 
   return (
     <div className="min-h-screen bg-[#F7F7F8]">
@@ -173,7 +173,9 @@ export default function TabsDashboard() {
 
         {/* Greeting */}
         <div className="mb-10">
-          <p className="text-sm text-gray-400 mb-0.5">Welcome back</p>
+          <p className="text-sm text-gray-400 mb-0.5">
+            {effectiveUser?.isImpersonating ? 'Viewing account' : 'Welcome back'}
+          </p>
           <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{firstName}</h1>
         </div>
 

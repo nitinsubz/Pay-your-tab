@@ -4,19 +4,13 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/firebaseConfig';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffectiveAuth } from '@/lib/impersonation';
 
 export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setIsLoggedIn(!!user);
-    });
-    return () => unsubscribe();
-  }, []);
+  const { authUser, isSuperAdmin } = useEffectiveAuth();
+  const isLoggedIn = !!authUser;
 
   const handleLogout = async () => {
     try {
@@ -60,6 +54,14 @@ export function Navbar() {
               className="text-sm text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >
               My Tabs
+            </Link>
+          )}
+          {isSuperAdmin && pathname !== '/admin' && (
+            <Link
+              href="/admin"
+              className="text-sm text-amber-600 hover:text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition-colors font-medium"
+            >
+              Admin
             </Link>
           )}
           {isLoggedIn && (

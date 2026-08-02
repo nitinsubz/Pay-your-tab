@@ -1,53 +1,54 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { auth, db } from '@/firebaseConfig';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { db } from '@/firebaseConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
+import { useEffectiveAuth } from '@/lib/impersonation';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const { authUser, effectiveUser, ready } = useEffectiveAuth();
+  const user = effectiveUser;
   const [venmoUsername, setVenmoUsername] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSetup, setIsSetup] = useState(false);
 
+  const effectiveUid = effectiveUser?.uid;
+
   useEffect(() => {
     // Check if this is a setup flow
     const urlParams = new URLSearchParams(window.location.search);
     setIsSetup(urlParams.get('setup') === 'true');
+  }, []);
 
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) {
-        router.push('/login');
-        return;
-      }
-      
-      setUser(currentUser);
-      
-      // Load user profile
+  useEffect(() => {
+    if (!ready) return;
+    if (!authUser || !effectiveUid) {
+      router.push('/login');
+      return;
+    }
+
+    const loadProfile = async () => {
+      setLoading(true);
       try {
-        const userRef = doc(db, 'users', currentUser.uid);
+        const userRef = doc(db, 'users', effectiveUid);
         const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-          const userData = userSnap.data();
-          setVenmoUsername(userData.venmoUsername || '');
-        }
+
+        setVenmoUsername(userSnap.exists() ? userSnap.data().venmoUsername || '' : '');
       } catch (error) {
         console.error('Error loading user profile:', error);
       } finally {
         setLoading(false);
       }
-    });
+    };
 
-    return () => unsubscribe();
-  }, [router]);
+    loadProfile();
+  }, [ready, authUser, effectiveUid, router]);
 
   const handleSave = async () => {
     if (!user) return;
@@ -152,7 +153,7 @@ export default function SettingsPage() {
                   type="text"
                   value={venmoUsername}
                   onChange={(e) => setVenmoUsername(e.target.value)}
-                  placeholder="@username"
+                  placeholder="username"
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">

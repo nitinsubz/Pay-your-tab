@@ -23,6 +23,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { auth, db } from '@/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
+import { getEffectiveUser } from '@/lib/impersonation';
 import { addDoc, collection, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
@@ -326,7 +327,7 @@ function CreateTabContent() {
   // Load user profile and existing draft on mount
   useEffect(() => {
     const loadUserData = async () => {
-      const user = auth.currentUser;
+      const user = getEffectiveUser();
       if (!user || hasInitialLoadRef.current) return;
 
       try {
@@ -422,7 +423,7 @@ function CreateTabContent() {
 
   // Auto-save function
   const autoSave = useCallback(async () => {
-    const user = auth.currentUser;
+    const user = getEffectiveUser();
     if (!user) return;
 
     if (!title && !description && !venmoUsername && people.length === 0 && bills.every(b => b.items.length === 0)) {
@@ -523,7 +524,7 @@ function CreateTabContent() {
         return;
       }
 
-      const user = auth.currentUser;
+      const user = getEffectiveUser();
       if (!user) {
         console.log('No user found');
         return;
@@ -800,7 +801,7 @@ function CreateTabContent() {
 
   const handleSubmit = async () => {
     try {
-      const userId = auth.currentUser?.uid;
+      const userId = getEffectiveUser()?.uid;
       if (!userId) return;
 
       const tabData = {

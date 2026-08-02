@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ExpenseDisplay } from '@/components/ExpenseDisplay'
 import { doc, getDoc, onSnapshot, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore'
-import { db, auth } from '@/firebaseConfig'
-import { onAuthStateChanged } from 'firebase/auth'
+import { db } from '@/firebaseConfig'
 import { useParams } from 'next/navigation'
+import { useEffectiveAuth } from '@/lib/impersonation'
 import {
   aggregateExpensesFromBills,
   getBillsFromDocument,
@@ -57,7 +57,7 @@ export default function TabPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [tabOwnerId, setTabOwnerId] = useState<string | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const { effectiveUid: currentUserId } = useEffectiveAuth()
   const [allUsers, setAllUsers] = useState<string[]>([])
   const [bills, setBills] = useState<TripBill[]>([])
   const [expensesData, setExpensesData] = useState<Record<string, Record<string, number>>>({})
@@ -84,11 +84,6 @@ export default function TabPage() {
   })
 
   const initialHashHandled = useRef(false)
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setCurrentUserId(u?.uid ?? null))
-    return () => unsub()
-  }, [])
 
   useEffect(() => {
     const fetchTab = async () => {

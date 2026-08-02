@@ -3,6 +3,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Accounts that can read and write anything, for support/debugging.
+    // Keep in sync with SUPERADMIN_EMAILS in lib/impersonation.ts.
+    function isSuperAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['nitins@g.ucla.edu'];
+    }
+
     match /tabs/{tabId} {
       // Anyone can read (tabs are accessed via public URL)
       allow read: if true;
@@ -13,15 +21,23 @@ service cloud.firestore {
       // Owner can do anything; members can update (add expenses, etc.)
       allow update: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
-        (request.auth.uid in resource.data.get('memberIds', []))
+        (request.auth.uid in resource.data.get('memberIds', [])) ||
+        isSuperAdmin()
       );
 
       // Only owner can delete
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        isSuperAdmin()
+      );
     }
 
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Superadmins can also list the collection, which powers /admin.
+      allow read, write: if request.auth != null && (
+        request.auth.uid == userId ||
+        isSuperAdmin()
+      );
     }
   }
 }

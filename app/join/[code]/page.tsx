@@ -12,9 +12,9 @@ import {
   Timestamp,
   arrayUnion,
 } from 'firebase/firestore';
-import { db, auth } from '@/firebaseConfig';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { db } from '@/firebaseConfig';
 import Link from 'next/link';
+import { useEffectiveAuth } from '@/lib/impersonation';
 
 export default function JoinTabPage() {
   const params = useParams();
@@ -27,20 +27,11 @@ export default function JoinTabPage() {
   const [tabDesc, setTabDesc] = useState('');
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [tabOwnerId, setTabOwnerId] = useState('');
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const { effectiveUser: currentUser, ready: authReady } = useEffectiveAuth();
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [tabClosed, setTabClosed] = useState(false);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setCurrentUser(u);
-      setAuthReady(true);
-    });
-    return () => unsub();
-  }, []);
 
   useEffect(() => {
     const fetchTab = async () => {

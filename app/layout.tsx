@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { getSiteOrigin } from "@/lib/site";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -51,6 +52,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <ImpersonationBanner />
       </body>
     </html>
   );
