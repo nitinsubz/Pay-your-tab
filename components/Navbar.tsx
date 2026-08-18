@@ -21,9 +21,12 @@ export function Navbar() {
     }
   };
 
+  /** The landing page is a full-width marketing layout; the app pages are a narrow column. */
+  const container = pathname === '/' ? 'max-w-6xl' : 'max-w-2xl';
+
   return (
-    <nav className="border-b border-gray-100 bg-white sticky top-0 z-50">
-      <div className="max-w-2xl mx-auto flex h-14 items-center justify-between px-4">
+    <nav className="border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
+      <div className={`${container} mx-auto flex h-14 items-center justify-between px-4`}>
         <Link href="/" className="flex items-center gap-2 group">
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-lg blur-sm opacity-40 group-hover:opacity-60 transition-opacity" />

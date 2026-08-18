@@ -2,9 +2,162 @@
 
 import { Navbar } from "@/components/Navbar"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { auth } from '@/firebaseConfig'
+import {
+  ArrowRight,
+  Check,
+  Link2,
+  MailCheck,
+  Plane,
+  Receipt,
+  Send,
+  SlidersHorizontal,
+  Users,
+} from "lucide-react"
+
+/* ---------------------------------------------------------------- pieces */
+
+function Avatar({ name, tone }: { name: string; tone: string }) {
+  return (
+    <span
+      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${tone}`}
+    >
+      {name[0]}
+    </span>
+  )
+}
+
+/** A miniature of a real tab — the product, not a description of it. */
+function TabPreview() {
+  const people = [
+    { name: 'Nitin', amount: '61.40', tone: 'bg-indigo-50 text-indigo-600', paid: true },
+    { name: 'Maya', amount: '48.15', tone: 'bg-emerald-50 text-emerald-600', paid: true },
+    { name: 'Dev', amount: '46.05', tone: 'bg-amber-50 text-amber-600', paid: false },
+    { name: 'Sam', amount: '28.60', tone: 'bg-rose-50 text-rose-600', paid: false },
+  ]
+
+  return (
+    <div className="relative">
+      {/* soft brand glow behind the card */}
+      <div
+        aria-hidden
+        className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-indigo-200/40 via-purple-200/30 to-pink-200/30 blur-3xl"
+      />
+
+      <div className="relative rounded-3xl border border-gray-100 bg-white p-5 shadow-[0_16px_50px_-24px_rgba(15,23,42,0.35)] sm:p-6">
+        {/* card header */}
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
+          <div className="min-w-0">
+            <p className="mb-0.5 text-xs font-medium uppercase tracking-widest text-gray-300">Friday</p>
+            <h3 className="truncate text-[17px] font-semibold tracking-tight text-gray-900">
+              Kang Ho Dong Baekjeong
+            </h3>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-medium uppercase tracking-widest text-gray-300">Total</p>
+            <p className="text-[17px] font-semibold tabular-nums tracking-tight text-gray-900">$184.20</p>
+          </div>
+        </div>
+
+        {/* items */}
+        <div className="space-y-2.5 py-4">
+          {[
+            { item: 'Galbi (2)', split: 'Nitin, Maya, Dev', amount: '78.00' },
+            { item: 'Soju tower', split: 'everyone', amount: '42.00' },
+            { item: 'Sam’s bibimbap', split: 'Sam', amount: '19.00' },
+          ].map((row) => (
+            <div key={row.item} className="flex items-center justify-between gap-3 text-sm">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-gray-900">{row.item}</p>
+                <p className="truncate text-xs text-gray-400">split · {row.split}</p>
+              </div>
+              <span className="shrink-0 tabular-nums text-gray-500">${row.amount}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* who owes what */}
+        <div className="space-y-1.5 border-t border-gray-100 pt-4">
+          {people.map((person) => (
+            <div key={person.name} className="flex items-center gap-3 rounded-2xl px-1 py-1.5">
+              <Avatar name={person.name} tone={person.tone} />
+              <span className="flex-1 truncate text-sm font-medium text-gray-900">{person.name}</span>
+              <span className="tabular-nums text-sm text-gray-500">${person.amount}</span>
+              {person.paid ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                  <Check className="h-3 w-3" strokeWidth={3} />
+                  paid
+                </span>
+              ) : (
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-400">
+                  unpaid
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* progress + action */}
+        <div className="mt-4 flex items-center gap-3 border-t border-gray-100 pt-4">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+            <div className="tw-fill h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+          </div>
+          <span className="shrink-0 text-xs font-medium text-gray-400">2 of 4 settled</span>
+        </div>
+      </div>
+
+      {/* floating notification, hinting at automatic Venmo tracking */}
+      <div className="tw-float absolute -bottom-7 -left-8 hidden items-center gap-2.5 rounded-2xl border border-gray-100 bg-white px-3.5 py-2.5 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.4)] sm:flex lg:-left-14">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50">
+          <Check className="h-3.5 w-3.5 text-emerald-600" strokeWidth={3} />
+        </span>
+        <div className="leading-tight">
+          <p className="text-[13px] font-medium text-gray-900">Maya paid you $48.15</p>
+          <p className="text-[11px] text-gray-400">marked paid automatically</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeatureCard({
+  icon,
+  title,
+  children,
+  className = '',
+}: {
+  icon: React.ReactNode
+  title: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={`group rounded-3xl border border-gray-100 bg-white p-6 transition-colors hover:border-gray-200 ${className}`}
+    >
+      <span className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gray-900 text-white transition-colors group-hover:bg-indigo-600">
+        {icon}
+      </span>
+      <h3 className="mb-2 text-[17px] font-semibold tracking-tight text-gray-900">{title}</h3>
+      <p className="text-sm leading-relaxed text-gray-500">{children}</p>
+    </div>
+  )
+}
+
+function Step({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
+  return (
+    <div className="relative">
+      <span className="mb-5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-sm font-semibold text-gray-900">
+        {n}
+      </span>
+      <h3 className="mb-2 text-lg font-semibold tracking-tight text-gray-900">{title}</h3>
+      <p className="text-sm leading-relaxed text-gray-500">{children}</p>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ page */
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -16,246 +169,205 @@ export default function Home() {
     return () => unsubscribe()
   }, [])
 
+  const primaryCta = isLoggedIn
+    ? { href: '/tabs/new', label: 'Create a tab' }
+    : { href: '/login', label: 'Start a tab — free' }
+  const secondaryCta = isLoggedIn
+    ? { href: '/tabs', label: 'My tabs' }
+    : { href: '#how-it-works', label: 'See how it works' }
+
   return (
-    <>
+    // globals.css sets Arial on body; the landing page opts into the Geist face
+    // that layout.tsx already loads (nav included, so nothing mismatches on screen).
+    <div className="font-[family-name:var(--font-geist-sans)]">
       <Navbar />
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden pt-20 pb-32 px-4">
-          <div className="absolute inset-0 bg-grid-slate-900/[0.04] bg-[size:20px_20px]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent" />
-          
-          <div className="relative max-w-7xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium mb-8 animate-fade-in">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+
+      <main className="min-h-screen bg-[#F7F7F8]">
+        {/* ------------------------------------------------------- hero */}
+        <section className="relative overflow-hidden px-4 pb-20 pt-14 sm:pt-20">
+          {/* decorative layers paint above the page background, below the content */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-40 left-1/2 h-[38rem] w-[64rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 opacity-70 blur-3xl"
+          />
+          <div aria-hidden className="tw-grid pointer-events-none absolute inset-0" />
+
+          <div className="relative mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16">
+            <div className="tw-rise text-center lg:text-left">
+              <span className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white/70 px-3 py-1.5 text-[13px] font-medium text-gray-600 backdrop-blur">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="tw-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                </span>
+                Split the tab. Keep the friends.
               </span>
-              The easiest way to split tabs and get paid
+
+              <h1 className="mt-6 text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.035em] text-gray-900 sm:text-6xl lg:text-[4.25rem]">
+                Everyone ate.
+                <br />
+                <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Everyone pays.
+                </span>
+              </h1>
+
+              <p className="mx-auto mt-6 max-w-xl text-[17px] leading-relaxed text-gray-500 lg:mx-0 sm:text-lg">
+                TabWrapped splits the check line by line, sends the Venmo requests for you, and
+                quietly ticks people off as they pay. It&apos;s like Spotify Wrapped, except it&apos;s
+                the tab your broke ass ran up.
+              </p>
+
+              <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row lg:justify-start justify-center">
+                <Link
+                  href={primaryCta.href}
+                  className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gray-900 px-7 text-[15px] font-medium text-white transition-colors hover:bg-gray-800 sm:w-auto"
+                >
+                  {primaryCta.label}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <Link
+                  href={secondaryCta.href}
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full border border-gray-200 bg-white px-7 text-[15px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:text-gray-900 sm:w-auto"
+                >
+                  {secondaryCta.label}
+                </Link>
+              </div>
+
+              <p className="mt-5 text-[13px] text-gray-400">
+                Free · sign in with Google · friends don&apos;t need an account
+              </p>
             </div>
-            
-            <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold mb-6 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-slide-up">
-              Split Tabs.<br />
-              Track Payments.<br />
-              <span className="text-slate-900">Get Paid.</span>
-            </h1>
-            
-            <p className="text-xl md:text-2xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in-delay">
-              It&apos;s like Spotify Wrapped, except it&apos;s the tab you and your friends ran up, 
-              and now you&apos;re even more broke. Wrapped.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in-delay-2">
-              {isLoggedIn ? (
-                <>
-                  <Link href="/tabs/new">
-                    <Button size="lg" className="text-lg px-8 py-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg shadow-indigo-500/50">
-                      Create New Tab
-                    </Button>
-                  </Link>
-                  <Link href="/tabs">
-                    <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-2">
-                      View My Tabs
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link href="/login">
-                    <Button size="lg" className="text-lg px-8 py-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg shadow-indigo-500/50">
-                      Get Started Free
-                    </Button>
-                  </Link>
-                  <Link href="/tabs">
-                    <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-2">
-                      View Demo
-                    </Button>
-                  </Link>
-                </>
-              )}
+
+            <div className="tw-rise tw-delay-2 mx-auto w-full max-w-sm lg:max-w-none">
+              <TabPreview />
             </div>
           </div>
         </section>
 
-        {/* Features Grid */}
-        <section className="py-24 px-4 bg-white/50">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-                Everything you need to split tabs like a pro
+        {/* --------------------------------------------------- features */}
+        <section className="px-4 py-20 sm:py-24">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-12 max-w-2xl">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
+                What you get
+              </p>
+              <h2 className="text-3xl font-semibold tracking-[-0.02em] text-gray-900 sm:text-4xl">
+                The boring parts, handled.
               </h2>
-              <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                Powerful features that make splitting bills and tracking payments effortless
+              <p className="mt-4 text-[17px] leading-relaxed text-gray-500">
+                No spreadsheets, no group-chat math, no &quot;hey, sorry to be that guy&quot; texts three
+                weeks later.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {/* Feature 1: Create & Split */}
-              <div className="group p-8 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">Create & Split Tabs</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Create tabs with multiple people and items. Split expenses any way you want - equal splits, custom amounts, or percentages. 
-                  Add items on the fly and watch totals calculate automatically.
-                </p>
-              </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <FeatureCard icon={<SlidersHorizontal className="h-5 w-5" />} title="Split it exactly right">
+                Assign items to whoever ordered them, split the shared stuff evenly, and let tax and
+                tip land proportionally. Totals recalculate as you type.
+              </FeatureCard>
 
-              {/* Feature 2: Venmo Integration */}
-              <div className="group p-8 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">Automatic Venmo Tracking</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Forward Venmo payment emails to automatically track who&apos;s paid. Our smart parser extracts payment details 
-                  and marks people as paid automatically. No manual tracking needed!
-                </p>
-              </div>
+              <FeatureCard icon={<Send className="h-5 w-5" />} title="One-tap Venmo requests">
+                Every person gets a prefilled Venmo deep link with their exact amount and the tab
+                name. Works on mobile and web.
+              </FeatureCard>
 
-              {/* Feature 3: Payment Requests */}
-              <div className="group p-8 rounded-2xl bg-gradient-to-br from-pink-50 to-rose-50 border border-pink-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">One-Click Payment Requests</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Send Venmo payment requests with a single click. Deep links work on mobile and web, 
-                  making it super easy for friends to pay you back instantly.
-                </p>
-              </div>
+              <FeatureCard icon={<MailCheck className="h-5 w-5" />} title="Payments mark themselves">
+                Forward your Venmo payment emails and TabWrapped reads them, matches the amount, and
+                checks that person off. You stop chasing.
+              </FeatureCard>
 
-              {/* Feature 4: Shareable Tabs */}
-              <div className="group p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">Shareable Tab Links</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Share tabs with unique URLs. Friends can view their expenses, see what they owe, 
-                  and mark themselves as paid - all without creating an account.
-                </p>
-              </div>
+              <FeatureCard icon={<Link2 className="h-5 w-5" />} title="A link anyone can open">
+                Share one URL and friends see their own line items and what they owe — no signup, no
+                app, no login wall.
+              </FeatureCard>
 
-              {/* Feature 5: Real-time Tracking */}
-              <div className="group p-8 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">Real-time Payment Status</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  See who&apos;s paid and who hasn&apos;t at a glance. Color-coded status indicators make it 
-                  easy to track payment progress. Get notified when payments come through.
-                </p>
-              </div>
+              <FeatureCard icon={<Plane className="h-5 w-5" />} title="Trips, not just dinners">
+                Stack a whole weekend of bills into one tab — meals, gas, the Airbnb — and settle up
+                with the fewest possible payments at the end.
+              </FeatureCard>
 
-              {/* Feature 6: Draft Saving */}
-              <div className="group p-8 rounded-2xl bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">Auto-Save Drafts</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Never lose your work. Tabs are automatically saved as drafts while you&apos;re creating them. 
-                  Come back anytime to finish and finalize your tab.
-                </p>
-              </div>
+              <FeatureCard icon={<Users className="h-5 w-5" />} title="See who still owes">
+                Paid and unpaid at a glance across every tab, with an invite code so friends can add
+                the expenses they covered themselves.
+              </FeatureCard>
             </div>
           </div>
         </section>
 
-        {/* How It Works */}
-        <section className="py-24 px-4 bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 text-white">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">How It Works</h2>
-              <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-                Get started in minutes. Split tabs, track payments, and get paid back - all in one place.
+        {/* ------------------------------------------------ how it works */}
+        <section id="how-it-works" className="scroll-mt-16 border-y border-gray-100 bg-white px-4 py-20 sm:py-24">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-14 max-w-2xl">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
+                How it works
               </p>
+              <h2 className="text-3xl font-semibold tracking-[-0.02em] text-gray-900 sm:text-4xl">
+                Receipt to reimbursed, in three moves.
+              </h2>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8 relative">
-              {/* Step 1 */}
-              <div className="relative">
-                <div className="absolute right-4 top-4 z-10 w-8 h-8 rounded-full bg-white/20 border border-white/35 text-white font-bold text-sm hidden md:flex items-center justify-center shadow-sm">
-                  1
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center mb-6">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <h3 className="text-2xl font-bold mb-4">Create Your Tab</h3>
-                  <p className="text-slate-300 leading-relaxed">
-                    Add people, items, and split expenses however you want. Custom splits, equal splits, or percentages - you decide.
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 2 */}
-              <div className="relative">
-                <div className="absolute right-4 top-4 z-10 w-8 h-8 rounded-full bg-white/20 border border-white/35 text-white font-bold text-sm hidden md:flex items-center justify-center shadow-sm">
-                  2
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-green-400 to-emerald-400 flex items-center justify-center mb-6">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-2xl font-bold mb-4">Share & Request</h3>
-                  <p className="text-slate-300 leading-relaxed">
-                    Share the tab link with friends. Send Venmo payment requests with one click. Forward Venmo emails for automatic tracking.
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="relative">
-                <div className="absolute right-4 top-4 z-10 w-8 h-8 rounded-full bg-white/20 border border-white/35 text-white font-bold text-sm hidden md:flex items-center justify-center shadow-sm">
-                  3
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-pink-400 to-rose-400 flex items-center justify-center mb-6">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-2xl font-bold mb-4">Get Paid</h3>
-                  <p className="text-slate-300 leading-relaxed">
-                    Watch payments come in automatically. See who&apos;s paid and who hasn&apos;t. No more awkward follow-ups needed.
-                  </p>
-                </div>
-              </div>
+            <div className="relative grid gap-12 md:grid-cols-3 md:gap-10">
+              <div
+                aria-hidden
+                className="absolute left-0 right-0 top-[18px] hidden h-px bg-gradient-to-r from-gray-200 via-gray-200 to-transparent md:block"
+              />
+              <Step n="1" title="Build the tab">
+                Punch in the items, add the people, and tap to say who had what. Drafts save
+                themselves, so you can do it at the table or in the Uber home.
+              </Step>
+              <Step n="2" title="Send it out">
+                Share the link or fire off Venmo requests in one tap. Everyone sees their own share,
+                itemized, with nothing to install.
+              </Step>
+              <Step n="3" title="Watch it close out">
+                Payments check themselves off as they land. When the last one clears, the tab is
+                done — and so are you.
+              </Step>
             </div>
           </div>
         </section>
 
-        {/* Footer */}
-        <footer className="py-12 px-4 bg-slate-900 text-slate-400">
-          <div className="max-w-7xl mx-auto text-center">
-            <p className="text-lg font-semibold text-white mb-2">TabWrapped</p>
-            <p className="text-sm">
+        {/* ----------------------------------------------------- cta band */}
+        <section className="px-4 py-20 sm:py-24">
+          <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-gray-900 px-6 py-16 text-center sm:px-12 sm:py-20">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-24 left-1/2 h-72 w-[40rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-30 blur-3xl"
+            />
+            <div className="relative">
+              <Receipt className="mx-auto mb-6 h-8 w-8 text-white/40" strokeWidth={1.5} />
+              <h2 className="mx-auto max-w-2xl text-3xl font-semibold tracking-[-0.02em] text-white sm:text-4xl">
+                Stop fronting the bill and hoping for the best.
+              </h2>
+              <p className="mx-auto mt-4 max-w-xl text-[17px] leading-relaxed text-gray-400">
+                Put in one tab tonight and never send another &quot;did you Venmo me?&quot; text again.
+              </p>
+              <Link
+                href={primaryCta.href}
+                className="group mt-9 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-8 text-[15px] font-medium text-gray-900 transition-colors hover:bg-gray-100"
+              >
+                {primaryCta.label}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------- footer */}
+        <footer className="border-t border-gray-100 px-4 py-10">
+          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
+            <span className="text-[15px] font-semibold tracking-tight">
+              <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Tab
+              </span>
+              <span className="text-gray-900">Wrapped</span>
+            </span>
+            <p className="text-sm text-gray-400">
               made with 💖 by{' '}
               <a
                 href="https://www.linkedin.com/in/nitinsub/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline hover:text-white transition-colors"
+                className="text-gray-500 underline underline-offset-2 transition-colors hover:text-gray-900"
               >
                 nitin subramanian
               </a>
@@ -264,49 +376,79 @@ export default function Home() {
         </footer>
       </main>
 
-      <style jsx>{`
-        @keyframes fade-in {
+      <style jsx global>{`
+        .tw-grid {
+          background-image:
+            linear-gradient(to right, rgba(15, 23, 42, 0.07) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(15, 23, 42, 0.07) 1px, transparent 1px);
+          background-size: 48px 48px;
+          -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+          mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+        }
+
+        @keyframes tw-rise {
           from {
             opacity: 0;
-            transform: translateY(10px);
+            transform: translateY(18px);
           }
           to {
             opacity: 1;
             transform: translateY(0);
           }
         }
-
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
+        @keyframes tw-float {
+          0%,
+          100% {
             transform: translateY(0);
           }
+          50% {
+            transform: translateY(-7px);
+          }
+        }
+        @keyframes tw-ping {
+          75%,
+          100% {
+            transform: scale(2.4);
+            opacity: 0;
+          }
+        }
+        @keyframes tw-fill {
+          from {
+            width: 0%;
+          }
+          to {
+            width: 50%;
+          }
         }
 
-        .animate-fade-in {
-          animation: fade-in 0.6s ease-out;
+        .tw-rise {
+          animation: tw-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .tw-delay-2 {
+          animation-delay: 0.15s;
+        }
+        .tw-float {
+          animation: tw-float 4.5s ease-in-out 1s infinite;
+        }
+        .tw-ping {
+          animation: tw-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        .tw-fill {
+          animation: tw-fill 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
         }
 
-        .animate-fade-in-delay {
-          animation: fade-in 0.8s ease-out 0.2s both;
-        }
-
-        .animate-fade-in-delay-2 {
-          animation: fade-in 1s ease-out 0.4s both;
-        }
-
-        .animate-slide-up {
-          animation: slide-up 0.8s ease-out;
-        }
-
-        .bg-grid-slate-900\/\[0\.04\] {
-          background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        @media (prefers-reduced-motion: reduce) {
+          .tw-rise,
+          .tw-float,
+          .tw-ping,
+          .tw-fill {
+            animation: none;
+          }
+          .tw-fill {
+            width: 50%;
+          }
         }
       `}</style>
-    </>
+    </div>
   )
 }
