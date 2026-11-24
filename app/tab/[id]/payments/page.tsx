@@ -7,13 +7,17 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebaseConfig';
 import { Navbar } from '@/components/Navbar';
 import { useEffectiveAuth } from '@/lib/impersonation';
+import { ArrowLeft, Check, Lock, PencilLine, Users } from 'lucide-react';
+import { summarizeTab, type SummarizableTab } from '@/lib/tabSummary';
+import { formatMoney } from '@/lib/format';
+import { Avatar, Money, Panel, ProgressBar, Spinner } from '@/components/app/primitives';
 
 interface Person {
   name: string;
   paid?: boolean;
 }
 
-interface TabDoc {
+interface TabDoc extends SummarizableTab {
   title?: string;
   userId?: string;
   people?: Person[];
@@ -33,6 +37,7 @@ export default function TabPaymentsDashboard() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [paidNames, setPaidNames] = useState<string[]>([]);
   const [unpaidNames, setUnpaidNames] = useState<string[]>([]);
+  const [owes, setOwes] = useState<Record<string, number>>({});
 
   const { effectiveUid: currentUserId } = useEffectiveAuth();
 
@@ -68,6 +73,11 @@ export default function TabPaymentsDashboard() {
           });
           setPaidNames(sortNames(paid));
           setUnpaidNames(sortNames(unpaid));
+          const owed: Record<string, number> = {};
+          summarizeTab(data).people.forEach((p) => {
+            owed[p.name] = p.owes;
+          });
+          setOwes(owed);
         } else {
           setPaidNames([]);
           setUnpaidNames([]);
@@ -88,122 +98,143 @@ export default function TabPaymentsDashboard() {
   const allPaid = total > 0 && unpaidNames.length === 0;
   const hasOutstanding = total > 0 && unpaidNames.length > 0;
 
+  const outstanding = unpaidNames.reduce((sum, n) => sum + Math.max(0, owes[n] ?? 0), 0);
+  const collected = paidNames.reduce((sum, n) => sum + Math.max(0, owes[n] ?? 0), 0);
+
+  const PersonRow = ({ name, paid }: { name: string; paid: boolean }) => {
+    const amount = owes[name] ?? 0;
+    return (
+      <li className="flex items-center gap-3 px-5 py-3">
+        <Avatar name={name} size="md" />
+        <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-gray-900">{name}</span>
+        {amount < -0.005 ? (
+          <span className="text-sm text-sky-600">is owed {formatMoney(-amount)}</span>
+        ) : (
+          <Money amount={amount} className={paid ? 'text-sm text-gray-400 line-through decoration-gray-300' : 'text-sm font-semibold text-gray-900'} />
+        )}
+      </li>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen tw-app-bg">
       <Navbar />
-      <main className="mx-auto max-w-3xl px-4 pb-16 pt-24">
-        <div className="mb-6">
-          <Link
-            href={`/tab/${tabId}`}
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-          >
-            ← Back to tab
-          </Link>
-        </div>
+      <main className="tw-app-rise mx-auto max-w-2xl px-4 pb-24 pt-8 sm:pt-12">
+        <Link
+          href={`/tab/${tabId}`}
+          className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-gray-400 transition-colors hover:text-gray-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to tab
+        </Link>
 
         {loading ? (
           <div className="flex justify-center py-16">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+            <Spinner className="h-8 w-8" />
           </div>
         ) : !tabExists ? (
-          <p className="text-center text-slate-600">This tab does not exist.</p>
+          <p className="py-16 text-center text-gray-500">This tab doesn&apos;t exist.</p>
         ) : !isOwner ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
-            <p className="font-semibold text-amber-900">Owner only</p>
-            <p className="mt-2 text-sm text-amber-800">
-              Sign in with the account that created this tab to see who has paid.
-            </p>
-            <Link
-              href="/login"
-              className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:underline"
-            >
+          <Panel className="p-8 text-center">
+            <span className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-500">
+              <Lock className="h-5 w-5" />
+            </span>
+            <p className="text-[17px] font-semibold text-gray-900">Only the organizer can see payments</p>
+            <p className="mt-1.5 text-sm text-gray-500">Sign in with the account that created this tab.</p>
+            <Link href="/login" className="mt-5 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-800">
               Sign in
             </Link>
-          </div>
+          </Panel>
         ) : total === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
-            <h1 className="text-lg font-semibold text-slate-900">No people on this tab</h1>
-            <p className="mt-2 text-sm text-slate-600">Add participants when editing the tab to track who has paid.</p>
+          <Panel className="p-8 text-center">
+            <span className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-500">
+              <Users className="h-5 w-5" />
+            </span>
+            <p className="text-[17px] font-semibold text-gray-900">No one&apos;s on this tab yet</p>
+            <p className="mt-1.5 text-sm text-gray-500">Add people to track who has paid.</p>
             <Link
               href={`/tabs/new?editId=${tabId}`}
-              className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:underline"
+              className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800"
             >
+              <PencilLine className="h-4 w-4" />
               Edit tab
             </Link>
-          </div>
-        ) : allPaid ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl">
-              ✓
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">Everyone&apos;s paid</h1>
-            <p className="mt-2 text-slate-600">
-              All {total} {total === 1 ? 'person has' : 'people have'} marked paid on &quot;{title}&quot;.
-            </p>
-            <Link
-              href={`/tab/${tabId}`}
-              className="mt-6 inline-flex rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              Return to tab
-            </Link>
-          </div>
-        ) : hasOutstanding ? (
+          </Panel>
+        ) : (
           <>
-            <div className="mb-8 text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Payment tracker</p>
-              <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">{title}</h1>
-              <p className="mt-2 text-sm text-slate-600">
-                {paidNames.length} of {total} paid · {unpaidNames.length} still outstanding
-              </p>
-              <div className="mx-auto mt-4 h-2 max-w-md overflow-hidden rounded-full bg-slate-200">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all"
-                  style={{ width: `${total ? (paidNames.length / total) * 100 : 0}%` }}
-                />
-              </div>
+            <div className="mb-6">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-600">Payments</p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-[-0.02em] text-gray-900">{title}</h1>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-                  Paid ({paidNames.length})
-                </h2>
-                <ul className="mt-3 max-h-[min(50vh,28rem)] space-y-2 overflow-y-auto pr-1">
-                  {paidNames.map((n) => (
-                    <li
-                      key={n}
-                      className="flex items-center justify-between rounded-lg bg-emerald-50/90 px-3 py-2 text-sm text-emerald-950"
-                    >
-                      <span className="font-medium">{n}</span>
-                      <span className="text-xs font-medium text-emerald-700">Paid</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+            <Panel className="mb-6 p-5">
+              {allPaid ? (
+                <div className="flex items-center gap-4">
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-[0_10px_24px_-12px_rgba(16,185,129,0.9)]">
+                    <Check className="h-6 w-6" strokeWidth={3} />
+                  </span>
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">Everyone&apos;s paid</p>
+                    <p className="text-sm text-gray-500">
+                      All {total} {total === 1 ? 'person has' : 'people have'} settled up. This tab is done.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-medium text-gray-400">Still out</p>
+                      <p className="mt-0.5 text-2xl font-semibold tracking-tight text-gray-900 tabular-nums">{formatMoney(outstanding)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-400">Collected</p>
+                      <p className="mt-0.5 text-2xl font-semibold tracking-tight text-emerald-600 tabular-nums">{formatMoney(collected)}</p>
+                    </div>
+                  </div>
+                  <ProgressBar value={paidNames.length / total} />
+                  <p className="mt-2 text-xs text-gray-500">
+                    {paidNames.length} of {total} paid · {unpaidNames.length} to go
+                  </p>
+                </>
+              )}
+            </Panel>
 
-              <section className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm ring-1 ring-amber-100">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-900">
-                  Not paid yet ({unpaidNames.length})
+            {hasOutstanding && (
+              <section className="mb-6">
+                <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-widest text-gray-400">
+                  Waiting on · {unpaidNames.length}
                 </h2>
-                <ul className="mt-3 max-h-[min(50vh,28rem)] space-y-2 overflow-y-auto pr-1">
-                  {unpaidNames.map((n) => (
-                    <li
-                      key={n}
-                      className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950"
-                    >
-                      <span className="font-medium">{n}</span>
-                      <span className="text-xs font-medium text-amber-800">Pending</span>
-                    </li>
-                  ))}
-                </ul>
+                <Panel className="divide-y divide-gray-100 overflow-hidden">
+                  <ul className="divide-y divide-gray-100">
+                    {unpaidNames.map((n) => (
+                      <PersonRow key={n} name={n} paid={false} />
+                    ))}
+                  </ul>
+                </Panel>
               </section>
-            </div>
+            )}
 
-            <p className="mt-6 text-center text-xs text-slate-500">
-              Status updates when someone marks paid from their share view (or when you change it while editing).
+            {paidNames.length > 0 && (
+              <section>
+                <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-widest text-gray-400">
+                  Paid · {paidNames.length}
+                </h2>
+                <Panel className="overflow-hidden">
+                  <ul className="divide-y divide-gray-100">
+                    {paidNames.map((n) => (
+                      <PersonRow key={n} name={n} paid />
+                    ))}
+                  </ul>
+                </Panel>
+              </section>
+            )}
+
+            <p className="mt-6 text-center text-xs text-gray-400">
+              Updates live as people mark themselves paid. Open someone from the tab page to change their status.
             </p>
           </>
-        ) : null}
+        )}
       </main>
     </div>
   );

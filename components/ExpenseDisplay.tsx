@@ -1,6 +1,9 @@
 import React from 'react'
+import { Check, CheckCircle2, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, Money } from "@/components/app/primitives"
+import { formatMoney } from "@/lib/format"
+import { cn } from "@/lib/utils"
 import { db } from "@/firebaseConfig"
 import { doc, updateDoc, getDoc } from "firebase/firestore"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -26,6 +29,7 @@ export function ExpenseDisplay({
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false)
   const [nextPaidState, setNextPaidState] = React.useState(true)
   const [tabTitle, setTabTitle] = React.useState<string>("")
+  const [venmoLoaded, setVenmoLoaded] = React.useState(false)
   React.useEffect(() => {
     const fetchVenmoUsername = async () => {
       try {
@@ -38,6 +42,8 @@ export function ExpenseDisplay({
         }
       } catch (error) {
         console.error("Error fetching venmo username:", error)
+      } finally {
+        setVenmoLoaded(true)
       }
     }
 
@@ -73,12 +79,6 @@ export function ExpenseDisplay({
       return next
     })
   }, [groupedExpenses])
-
-  const formatAmount = (amount: number) => {
-    return amount < 0 
-      ? `-$${Math.abs(amount).toFixed(2)}`
-      : `$${amount.toFixed(2)}`
-  }
 
   const isMobile = () => {
     if (typeof window === 'undefined') return false
@@ -158,128 +158,181 @@ export function ExpenseDisplay({
     }
   }
 
+  const firstName = name.split(' ')[0]
+  const owesMoney = total > 0.005
+  const isOwed = total < -0.005
+
   return (
     <>
-      <Card className={`w-full ${isPaid ? 'bg-green-50' : ''}`}>
-        <CardHeader>
-          <CardTitle>{name}&apos;s Expenses</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
+      <div
+        className={cn(
+          'overflow-hidden rounded-3xl border bg-white shadow-[0_16px_50px_-28px_rgba(15,23,42,0.35)] transition-colors',
+          isPaid ? 'border-emerald-200' : 'border-gray-100'
+        )}
+      >
+        {/* Amount hero */}
+        <div className={cn('relative px-6 pb-6 pt-6 text-center', isPaid ? 'bg-emerald-50/60' : 'bg-white')}>
+          {!isPaid && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-16 left-1/2 h-40 w-80 -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 opacity-70 blur-3xl"
+            />
+          )}
+          <div className="relative">
+            <div className="mb-3 flex justify-center">
+              <Avatar name={name} size="lg" className="ring-4 ring-white" />
+            </div>
+            <p className="text-sm font-medium text-gray-500">
+              {isOwed ? `${firstName} is owed` : owesMoney ? `${firstName}'s share` : `${firstName}'s balance`}
+            </p>
+            <p className="mt-1 text-[2.75rem] font-semibold leading-none tracking-[-0.03em] text-gray-900 tabular-nums">
+              {formatMoney(Math.abs(total))}
+            </p>
+            {isPaid ? (
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-100/80 px-3 py-1 text-sm font-medium text-emerald-700">
+                <Check className="h-4 w-4" strokeWidth={3} />
+                Paid
+              </p>
+            ) : !owesMoney && !isOwed ? (
+              <p className="mt-3 text-sm text-gray-500">Nothing owed. Credits and charges balance out.</p>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Actions */}
+        {!isPaid && (owesMoney || isOwed) && (
+          <div className="px-6 pb-2">
+            {venmoUsername ? (
+              <button
+                type="button"
+                onClick={() => (owesMoney ? handleVenmoClick(total, false) : handleVenmoClick(-total, true))}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#008CFF] text-[15px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(0,140,255,0.8)] transition-all hover:bg-[#0077DA] active:scale-[0.99]"
+              >
+                <VenmoMark />
+                {owesMoney ? `Pay ${formatMoney(total)} with Venmo` : `Request ${formatMoney(-total)} on Venmo`}
+              </button>
+            ) : venmoLoaded ? (
+              <p className="rounded-2xl bg-gray-50 px-4 py-3 text-center text-sm text-gray-500">
+                The organizer hasn&apos;t added a Venmo username yet.
+              </p>
+            ) : (
+              <div className="h-12 w-full animate-pulse rounded-full bg-gray-100" />
+            )}
+          </div>
+        )}
+        <div className="px-6 pb-5 pt-2">
+          {!isPaid && (
+            <button
+              type="button"
+              onClick={() => {
+                setNextPaidState(true)
+                setShowConfirmDialog(true)
+              }}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:text-gray-900"
+            >
+              <CheckCircle2 className="h-4 w-4 text-gray-400" />
+              {owesMoney ? 'I’ve paid, mark as paid' : 'Mark as settled'}
+            </button>
+          )}
+          {isPaid && venmoUsername && (owesMoney || isOwed) && (
+            <button
+              type="button"
+              onClick={() => (owesMoney ? handleVenmoClick(total, false) : handleVenmoClick(-total, true))}
+              className="flex h-10 w-full items-center justify-center gap-1.5 rounded-full text-sm font-medium text-[#008CFF] transition-colors hover:bg-white"
+            >
+              <VenmoMark />
+              {owesMoney ? 'Still need to send it? Open Venmo' : 'Open Venmo request'}
+            </button>
+          )}
+          {isPaid && canTogglePaid && (
+            <button
+              type="button"
+              onClick={() => {
+                setNextPaidState(false)
+                setShowConfirmDialog(true)
+              }}
+              className="flex h-10 w-full items-center justify-center rounded-full text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-900"
+            >
+              Mark as unpaid
+            </button>
+          )}
+        </div>
+
+        {/* Breakdown */}
+        <div className="border-t border-gray-100">
+          <p className="px-6 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Breakdown</p>
+          <ul className="px-3 pb-3">
             {groupedExpenses.map((group) => {
               const collapsed = collapsedSections[group.section] ?? true
               return (
-                <div key={group.section} className="rounded-lg border border-slate-200 bg-slate-50/80">
+                <li key={group.section}>
                   <button
                     type="button"
+                    aria-expanded={!collapsed}
                     onClick={() =>
                       setCollapsedSections((prev) => ({
                         ...prev,
                         [group.section]: !collapsed,
                       }))
                     }
-                    className="w-full px-3 py-2 flex items-center justify-between text-left"
+                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
                   >
-                    <div>
-                      <div className="font-semibold text-slate-900">{group.section}</div>
-                      <div className="text-xs text-slate-500">
-                        {group.items.length} line item{group.items.length === 1 ? '' : 's'}
-                      </div>
+                    <ChevronRight
+                      className={cn('h-4 w-4 shrink-0 text-gray-300 transition-transform', !collapsed && 'rotate-90')}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-medium text-gray-900">{group.section}</p>
+                      <p className="text-xs text-gray-400">
+                        {group.items.length} item{group.items.length === 1 ? '' : 's'}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`font-semibold ${group.subtotal < 0 ? 'text-blue-600' : 'text-slate-800'}`}>
-                        {formatAmount(group.subtotal)}
-                      </span>
-                      <span className="text-slate-500 text-sm">{collapsed ? '▸' : '▾'}</span>
-                    </div>
+                    <Money amount={group.subtotal} className="text-[15px] font-semibold text-gray-900" />
                   </button>
                   {!collapsed && (
-                    <ul className="px-3 pb-3 space-y-1">
+                    <ul className="mb-1 ml-[1.875rem] mr-3 space-y-0.5 border-l border-gray-100 pl-4">
                       {group.items.map((item) => (
-                        <li
-                          key={item.fullKey}
-                          className={`flex justify-between gap-3 pl-4 py-1 text-sm border-l-2 border-slate-200 ${
-                            item.amount < 0 ? 'text-blue-600' : 'text-slate-700'
-                          }`}
-                        >
-                          <span className="truncate">{item.label}</span>
-                          <span className="tabular-nums">{formatAmount(item.amount)}</span>
+                        <li key={item.fullKey} className="flex justify-between gap-3 py-1 text-sm">
+                          <span className={cn('truncate', item.amount < 0 ? 'text-sky-600' : 'text-gray-600')}>
+                            {item.label}
+                            {item.amount < 0 && <span className="ml-1.5 text-xs text-sky-500">credit</span>}
+                          </span>
+                          <Money amount={item.amount} className="shrink-0 text-gray-700" />
                         </li>
                       ))}
                     </ul>
                   )}
-                </div>
+                </li>
               )
             })}
+          </ul>
+          <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
+            <span className="text-sm font-medium text-gray-500">Total</span>
+            <Money amount={total} className="text-lg font-semibold tracking-tight text-gray-900" />
           </div>
-          <div className="mt-4 text-xl font-bold flex justify-between">
-            <span>Total</span>
-            <span>{formatAmount(total)}</span>
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-2">
-          {total > 0 && (
-            <Button className="w-full" onClick={() => handleVenmoClick(total, false)}>
-              Click to Venmo
-            </Button>
-          )}
-          {total < 0 && (
-            <Button className="w-full" onClick={() => handleVenmoClick(-total, true)}>
-              Click to Venmo Request
-            </Button>
-          )}
-          {total === 0 && (
-            <p className="text-center text-sm text-slate-600 py-1">
-              Nothing owed — credits and charges balance out.
-            </p>
-          )}
-          {isPaid && <div className="text-center font-medium text-green-600">Paid ✓</div>}
-          {!isPaid && (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setNextPaidState(true)
-                setShowConfirmDialog(true)
-              }}
-            >
-              Mark as Paid
-            </Button>
-          )}
-          {isPaid && canTogglePaid && (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setNextPaidState(false)
-                setShowConfirmDialog(true)
-              }}
-            >
-              Mark as Unpaid
-            </Button>
-          )}
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
 
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{nextPaidState ? 'Confirm Payment' : 'Mark as Unpaid?'}</DialogTitle>
+            <DialogTitle>{nextPaidState ? `Mark ${firstName} as paid?` : `Mark ${firstName} as unpaid?`}</DialogTitle>
             <DialogDescription>
               {nextPaidState
-                ? 'Are you sure you want to mark this as paid?'
-                : 'Marking unpaid will allow this person to be paid again.'}
+                ? 'Only do this once the money has actually been sent. The organizer will see it.'
+                : 'They’ll show as owing again.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={() => {
-              setShowConfirmDialog(false)
-              handleUpdatePaid(nextPaidState)
-            }}>
-              {nextPaidState ? 'Confirm' : 'Mark Unpaid'}
+            <Button
+              onClick={() => {
+                setShowConfirmDialog(false)
+                handleUpdatePaid(nextPaidState)
+              }}
+            >
+              {nextPaidState ? 'Mark paid' : 'Mark unpaid'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -288,3 +341,10 @@ export function ExpenseDisplay({
   )
 }
 
+function VenmoMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M19.5 3c.7 1.2 1 2.4 1 3.9 0 4.9-4.2 11.2-7.6 15.6H5.2L2.1 4.3l6.8-.6 1.6 13c1.5-2.5 3.4-6.4 3.4-9 0-1.5-.3-2.5-.7-3.3L19.5 3z" />
+    </svg>
+  )
+}

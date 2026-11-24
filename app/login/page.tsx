@@ -5,6 +5,9 @@ import { loginWithGoogle, logout } from "@/lib/authutils";
 import { User } from 'firebase/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
+import { Navbar } from '@/components/Navbar';
+import { Spinner } from '@/components/app/primitives';
 import { db } from '@/firebaseConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -14,8 +17,20 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect');
 
+  const [signingIn, setSigningIn] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
   const handleLogin = async () => {
+    setSigningIn(true);
+    setLoginError(null);
     const { success, user, error } = await loginWithGoogle();
+    if (!success) {
+      setSigningIn(false);
+      const code = (error as { code?: string } | undefined)?.code;
+      if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+        setLoginError('Sign-in didn’t go through. Please try again.');
+      }
+    }
     if (success && user) {
       setUser(user);
       try {
@@ -50,6 +65,7 @@ function LoginForm() {
   };
 
   const handleLogout = async () => {
+    setSigningIn(false);
     const { success, error } = await logout();
     if (success) {
       setUser(null);
@@ -59,42 +75,56 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-lg">
-        {user ? (
-          <div className="space-y-4">
-            <h1 className="text-2xl font-bold text-gray-900">Welcome, {user.displayName}</h1>
-            <p className="text-gray-600">{user.email}</p>
-            <button
-              onClick={handleLogout}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Sign Out
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
-              <p className="mt-2 text-sm text-gray-600">
-                Please sign in with your Google account to continue
+    <div className="relative min-h-screen overflow-hidden tw-app-bg">
+      <Navbar />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-1/2 h-[34rem] w-[56rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 opacity-70 blur-3xl"
+      />
+      <main className="relative flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-16">
+        <div className="tw-app-rise w-full max-w-sm">
+          {user ? (
+            <div className="rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-[0_16px_50px_-24px_rgba(15,23,42,0.35)]">
+              <Spinner className="mx-auto h-7 w-7" />
+              <p className="mt-4 text-[15px] font-medium text-gray-900">Signing you in as {user.displayName || user.email}</p>
+              <button onClick={handleLogout} className="mt-6 text-sm text-gray-400 underline underline-offset-2 hover:text-gray-900">
+                Not you? Sign out
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-[0_16px_50px_-24px_rgba(15,23,42,0.35)]">
+              <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 shadow-[0_10px_24px_-10px_rgba(124,58,237,0.7)]">
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h1 className="text-center text-2xl font-semibold tracking-tight text-gray-900">
+                {redirectTo?.startsWith('/join/') ? 'Sign in to join the tab' : 'Welcome to TabWrapped'}
+              </h1>
+              <p className="mt-2 text-center text-[15px] text-gray-500">
+                Split the check, send the links, and watch it get paid.
+              </p>
+              <button
+                onClick={handleLogin}
+                disabled={signingIn}
+                className="mt-8 flex h-12 w-full items-center justify-center gap-3 rounded-full border border-gray-200 bg-white text-[15px] font-medium text-gray-800 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99] disabled:opacity-60"
+              >
+                {signingIn ? <Spinner className="h-5 w-5" /> : <Image src="/google.svg" alt="" width={20} height={20} />}
+                {signingIn ? 'Waiting for Google…' : 'Continue with Google'}
+              </button>
+              {loginError && <p className="mt-3 text-center text-sm text-red-600">{loginError}</p>}
+              <p className="mt-6 text-center text-xs leading-relaxed text-gray-400">
+                Friends you split with don&apos;t need an account.
               </p>
             </div>
-            <button
-              onClick={handleLogin}
-              className="w-full flex items-center justify-center gap-3 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <Image
-                src="/google.svg"
-                alt="Google logo"
-                width={20}
-                height={20}
-              />
-              Sign in with Google
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+          <p className="mt-6 text-center text-sm text-gray-400">
+            <Link href="/" className="hover:text-gray-900">
+              ← Back to home
+            </Link>
+          </p>
+        </div>
+      </main>
     </div>
   );
 }

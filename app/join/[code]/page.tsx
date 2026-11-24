@@ -14,6 +14,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/firebaseConfig';
 import Link from 'next/link';
+import { Link2Off, Lock, Users } from 'lucide-react';
+import { Navbar } from '@/components/Navbar';
+import { Avatar, Spinner } from '@/components/app/primitives';
 import { useEffectiveAuth } from '@/lib/impersonation';
 
 export default function JoinTabPage() {
@@ -93,75 +96,87 @@ export default function JoinTabPage() {
     }
   };
 
+  const shell = (children: React.ReactNode) => (
+    <div className="relative min-h-screen overflow-hidden tw-app-bg">
+      <Navbar />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-1/2 h-[34rem] w-[56rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 opacity-70 blur-3xl"
+      />
+      <main className="relative flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-16">
+        <div className="tw-app-rise w-full max-w-sm">{children}</div>
+      </main>
+    </div>
+  );
+
+  const card = 'rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-[0_16px_50px_-24px_rgba(15,23,42,0.35)]';
+
   if (loading || !authReady) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+    return shell(
+      <div className="flex justify-center">
+        <Spinner className="h-8 w-8" />
       </div>
     );
   }
 
   if (notFound) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Invalid invite link</h1>
-          <p className="text-gray-600">This invite link is invalid or has expired.</p>
-        </div>
+    return shell(
+      <div className={card}>
+        <span className="mx-auto mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-500">
+          <Link2Off className="h-5 w-5" />
+        </span>
+        <h1 className="text-xl font-semibold tracking-tight text-gray-900">This invite link doesn&apos;t work</h1>
+        <p className="mt-2 text-sm text-gray-500">It may be mistyped or expired. Ask whoever sent it for a fresh one.</p>
       </div>
     );
   }
 
   if (tabClosed) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Tab already finalized</h1>
-          <p className="text-gray-600">This tab has been created and is no longer accepting new members.</p>
-        </div>
+    return shell(
+      <div className={card}>
+        <span className="mx-auto mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-500">
+          <Lock className="h-5 w-5" />
+        </span>
+        <h1 className="text-xl font-semibold tracking-tight text-gray-900">This tab has already been sent</h1>
+        <p className="mt-2 text-sm text-gray-500">It&apos;s no longer taking new collaborators. Ask the organizer to add your expenses.</p>
       </div>
     );
   }
 
-  return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
-        <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">
-          You&apos;re invited
-        </p>
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">{tabTitle}</h1>
-        {tabDesc && <p className="text-sm text-gray-600 mb-6">{tabDesc}</p>}
-        {!tabDesc && <div className="mb-6" />}
+  return shell(
+    <div className={card}>
+      <span className="mx-auto mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+        <Users className="h-5 w-5" />
+      </span>
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-600">You&apos;re invited</p>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{tabTitle}</h1>
+      {tabDesc && <p className="mt-1.5 text-sm text-gray-500">{tabDesc}</p>}
+      <p className="mt-4 text-sm text-gray-500">Join to add the people and expenses you covered.</p>
 
-        {!currentUser ? (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-700">Sign in to join this tab and add expenses.</p>
-            <Link
-              href={`/login?redirect=/join/${code}`}
-              className="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors"
-            >
-              Sign in to join
-            </Link>
+      {!currentUser ? (
+        <Link
+          href={`/login?redirect=/join/${code}`}
+          className="mt-7 flex h-12 w-full items-center justify-center rounded-full bg-gray-900 text-[15px] font-medium text-white transition-colors hover:bg-gray-800"
+        >
+          Sign in to join
+        </Link>
+      ) : (
+        <>
+          <div className="mt-6 flex min-w-0 items-center justify-center gap-2 text-sm text-gray-500">
+            <Avatar name={currentUser.displayName || currentUser.email || '?'} size="xs" />
+            <span className="shrink-0">Joining as</span> <span className="min-w-0 truncate font-medium text-gray-900">{currentUser.displayName || currentUser.email}</span>
           </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-700">
-              Joining as{' '}
-              <span className="font-medium">
-                {currentUser.displayName || currentUser.email}
-              </span>
-            </p>
-            {joinError && <p className="text-red-600 text-sm">{joinError}</p>}
-            <button
-              onClick={handleJoin}
-              disabled={joining}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2.5 px-4 rounded-lg transition-colors"
-            >
-              {joining ? 'Joining...' : 'Join tab'}
-            </button>
-          </div>
-        )}
-      </div>
-    </main>
+          {joinError && <p className="mt-3 text-sm text-red-600">{joinError}</p>}
+          <button
+            onClick={handleJoin}
+            disabled={joining}
+            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gray-900 text-[15px] font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+          >
+            {joining && <Spinner className="h-4 w-4 border-[1.5px] border-white/30 border-t-white" />}
+            {joining ? 'Joining…' : 'Join tab'}
+          </button>
+        </>
+      )}
+    </div>
   );
 }
