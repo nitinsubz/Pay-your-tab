@@ -39,3 +39,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 firebase_key.json
+
+# firebase emulators
+*-debug.log
